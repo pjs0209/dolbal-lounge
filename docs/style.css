@@ -98,3 +98,28 @@
 @container (min-width: 450px) {
   .competition-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.page-shell[data-view="projects"] { grid-template-areas: "competition competition" "social social"; }
+.page-shell[data-view="projects"] .page-core { display: none; }
+.page-shell[data-view="projects"] .competition-rail, .trends-page { margin-top: 28px; }
+.page-shell[data-view="projects"] .project-feed { container-type: inline-size; }
+.page-shell[data-view="projects"] .project-heading h2, .trends-page h1 { margin: 0 0 .7rem; font-size: clamp(1.45rem, 2.1vw, 2rem); }
+.trends-intro { margin: 0 0 1rem; }
+.trends-list { display: grid; gap: .65rem; }
+.trend-card h2 { font-size: 1.08rem; line-height: 1.45; margin: .5rem 0 .35rem; overflow-wrap: anywhere; }
+.trend-card p { font-size: .95rem; }
+#trendMore { margin-top: .9rem; }
+.project-award { display: grid; justify-items: start; gap: .16rem; margin: .65rem 0; }
+.project-award strong { padding: .15rem .52rem; border-radius: 12px; background: #f4ecce; color: #624a13; font-size: .8rem; }
+.project-award a { font-size: .75rem; }
+@container (min-width: 850px) {
+  .page-shell[data-view="projects"] .competition-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px) {
+  .page-shell[data-view="projects"] { grid-template-areas: "social competition competition"; }
+}
+@media (max-width: 670px) {
+  .page-shell[data-view="projects"] { grid-template-areas: "competition" "social"; }
+  .top nav { flex-wrap: wrap; gap: 0 clamp(.5rem, 2vw, 1rem); }
+  .top nav a { font-size: .82rem; }
+}

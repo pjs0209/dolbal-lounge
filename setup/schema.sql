@@ -307,4 +307,22 @@ create policy dolbat_projects_public on public.dolbat_projects for select to ano
 create policy dolbat_projects_register on public.dolbat_projects for insert to authenticated
 with check (author = (select auth.uid()) and (select dolbal_internal.member_ok()));
 
+create table public.dolbat_trends (
+  id uuid primary key,
+  author uuid references public.dolbal_profiles(id) on delete set null default auth.uid(),
+  title text not null check (char_length(title) between 1 and 120 and title ~ '[^[:space:]]'),
+  category text not null check (category in ('논문·연구','기술 트렌드','개발 도구','기타')),
+  source_url text not null check (char_length(source_url) <= 2048 and source_url ~ '^https://[^[:space:]]+$'),
+  summary text not null check (char_length(summary) between 1 and 1500 and summary ~ '[^[:space:]]'),
+  created_at timestamptz not null default now()
+);
+create index dolbat_trends_recent on public.dolbat_trends (created_at desc, id desc);
+alter table public.dolbat_trends enable row level security;
+revoke all on public.dolbat_trends from public, anon, authenticated;
+grant select (id,title,category,source_url,summary,created_at) on public.dolbat_trends to anon, authenticated;
+grant insert (id,title,category,source_url,summary) on public.dolbat_trends to authenticated;
+create policy dolbat_trends_public on public.dolbat_trends for select to anon, authenticated using (true);
+create policy dolbat_trends_publish on public.dolbat_trends for insert to authenticated
+with check (author = (select auth.uid()) and (select dolbal_internal.member_ok()));
+
 commit;

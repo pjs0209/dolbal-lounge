@@ -223,22 +223,29 @@ const Club = (() => {
     return rpc("industry_options",{});
   }
   const projectCols="id,title,repository_url,description,image,created_at";
-  function projects(cursor){
+  function publicFeed(table,columns,limit,cursor){
     const filter=cursor?"&or="+encodeURIComponent(
       "(created_at.lt."+cursor.created_at+",and(created_at.eq."+cursor.created_at+",id.lt."+cursor.id+"))"
     ):"";
-    return api("/rest/v1/dolbat_projects?select="+projectCols+"&order=created_at.desc,id.desc&limit=6"+filter);
+    return api("/rest/v1/"+table+"?select="+columns+"&order=created_at.desc,id.desc&limit="+limit+filter);
   }
-  async function registerProject(project){
+  async function publishCard(table,post,duplicateMessage){
+    const path="/rest/v1/"+table;
     try{
-      await api("/rest/v1/dolbat_projects",{method:"POST",auth:true,body:project});
+      await api(path,{method:"POST",auth:true,body:post});
     }catch(error){
       if(error.status!==409)throw error;
-      const saved=await api("/rest/v1/dolbat_projects?select=id&id=eq."+encodeURIComponent(project.id));
-      if(!saved.length)throw Error("이미 등록된 GitHub 저장소예요.");
+      const saved=await api(path+"?select=id&id=eq."+encodeURIComponent(post.id));
+      if(!saved.length)throw Error(duplicateMessage);
     }
   }
-  return {demo,ready,sample,load,put,details,download,deleteQuestion,saveWork,industries,projects,registerProject,
+  const trendCols="id,title,category,source_url,summary,created_at";
+  return {demo,ready,sample,load,put,details,download,deleteQuestion,saveWork,industries,
+    projects:cursor=>publicFeed("dolbat_projects",projectCols,6,cursor),
+    registerProject:project=>publishCard("dolbat_projects",project,"이미 등록된 GitHub 저장소예요."),
+    trends:cursor=>publicFeed("dolbat_trends",trendCols,10,cursor),
+    registerTrend:post=>publishCard("dolbat_trends",post,"소식을 공유하지 못했어요. 다시 시도해 주세요."),
+
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
     authenticate,
     join:p=>rpc("join_member",{p_nickname:p.nickname,p_member_name:p.member_name,p_role:p.role,
