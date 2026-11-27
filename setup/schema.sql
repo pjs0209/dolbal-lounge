@@ -234,4 +234,58 @@ using (
 create index dolbal_questions_attachment_path on public.dolbal_questions(attachment_path) where attachment_path is not null;
 create index dolbal_answers_attachment_path on public.dolbal_answers(attachment_path) where attachment_path is not null;
 
+alter table public.dolbal_questions add column deleted_at timestamptz;
+
+create policy dolbal_questions_visible on public.dolbal_questions as restrictive for select to authenticated
+using (deleted_at is null);
+create policy dolbal_answers_parent_visible on public.dolbal_answers as restrictive for select to authenticated
+using (exists (select 1 from public.dolbal_questions q where q.id = question_id));
+create policy dolbal_answers_parent_open on public.dolbal_answers as restrictive for insert to authenticated
+with check (exists (select 1 from public.dolbal_questions q where q.id = question_id));
+
+create function dolbal_internal.delete_own_question(p_id uuid) returns boolean
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not dolbal_internal.member_ok() then return false; end if;
+  update public.dolbal_questions
+  set deleted_at = now()
+  where id = p_id and author = (select auth.uid()) and deleted_at is null;
+  if found then return true; end if;
+  return exists (select 1 from public.dolbal_questions
+    where id = p_id and author = (select auth.uid()) and deleted_at is not null);
+end;
+$$;
+revoke all on function dolbal_internal.delete_own_question(uuid) from public, anon, authenticated;
+grant execute on function dolbal_internal.delete_own_question(uuid) to authenticated;
+
+create function public.dolbal_delete_own_question(p_id uuid) returns boolean
+language sql security invoker set search_path = '' as $$
+  select dolbal_internal.delete_own_question(p_id);
+$$;
+revoke all on function public.dolbal_delete_own_question(uuid) from public, anon, authenticated;
+grant execute on function public.dolbal_delete_own_question(uuid) to authenticated;
+
+-- Uploads may be read and cleaned up by their owner before a post is saved.
+-- Consult links without RLS here so a deleted question's files are never treated as staged uploads.
+create function dolbal_internal.owns_staged_attachment(p_path text) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select split_part(p_path, '/', 1) = (select auth.uid())::text
+    and dolbal_internal.member_ok()
+    and not exists (select 1 from public.dolbal_questions q where q.attachment_path = p_path)
+    and not exists (select 1 from public.dolbal_answers a where a.attachment_path = p_path);
+$$;
+revoke all on function dolbal_internal.owns_staged_attachment(text) from public, anon, authenticated;
+grant execute on function dolbal_internal.owns_staged_attachment(text) to authenticated;
+
+alter policy dolbat_attachment_read on storage.objects using (
+  bucket_id = 'dolbat-attachments' and (select dolbal_internal.member_ok()) and (
+    exists (select 1 from public.dolbal_questions q where q.attachment_path = objects.name)
+    or exists (select 1 from public.dolbal_answers a where a.attachment_path = objects.name)
+    or dolbal_internal.owns_staged_attachment(name)
+  )
+);
+alter policy dolbat_attachment_discard on storage.objects using (
+  bucket_id = 'dolbat-attachments' and dolbal_internal.owns_staged_attachment(name)
+);
+
 commit;
