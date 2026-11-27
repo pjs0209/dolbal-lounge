@@ -157,6 +157,6 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-act]
 }catch(err){toast(err.message);}});
 board.addEventListener("input",e=>{if(e.target.id==="search"){query=e.target.value;results();}});
 board.addEventListener("change",e=>{if(e.target.id==="mfilter"){status=e.target.value;paint();}});
-$("#about").onclick=()=>popup("이용 안내",'<p class="article">기계공학과와 전자전기공학과의 돌밭 재학생·졸업생이 함께 쓰는 게시판이에요. 다른 학과 선배에게도 질문할 수 있어요. 질문하기 전에 키워드로 이전 답변을 찾아보세요.</p><p class="hint">선배를 지정한 질문도 승인된 부원 모두가 볼 수 있어요. 인물 사진이나 동아리 밖의 자료는 공유할 수 있는지 먼저 확인해 주세요.</p>'+(Club.demo?note:""));
+$("#about").onclick=()=>popup("이용 안내",'<p class="article">돌밭(DOLBAT)은 건국대학교 공과대학에서 로봇을 만드는 학술 동아리예요. 이곳에서는 기계공학과와 전자전기공학과 재학생·졸업생에게 제작 경험이나 진로에 대해 물어볼 수 있어요.</p><p class="article">동문 근황과 대회·수상 소식은 <a href="https://cafe.naver.com/dolbat1998" target="_blank" rel="noopener noreferrer">네이버 카페</a>에서, 동아리 활동 사진은 <a href="https://www.instagram.com/dolbat_ku/" target="_blank" rel="noopener noreferrer">인스타그램 @dolbat_ku</a>에서 볼 수 있어요.</p><p class="hint">선배를 지정한 질문도 승인된 부원 모두가 볼 수 있어요. 인물 사진이나 동아리 밖의 자료는 공유할 수 있는지 먼저 확인해 주세요.</p>'+(Club.demo?note:""));
 $("#account").onclick=account;window.addEventListener("hashchange",paint);window.addEventListener("focus",()=>{if(!modal.open&&phase==="ok"&&!Club.demo)refresh();});
 paint();refresh();

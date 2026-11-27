@@ -2,12 +2,11 @@
 
 기계공학과와 전자전기공학과의 돌밭 재학생·졸업생이 한곳에서 질문과 경험을 나누는 부원 게시판입니다. 홈페이지 주소는 누구나 열 수 있습니다. 질문, 사진, 답변, 선배 목록은 운영진이 확인한 부원에게만 공개합니다.
 
-## GitHub에 올리기
+[돌밭 네이버 카페](https://cafe.naver.com/dolbat1998) · [돌밭 인스타그램 @dolbat_ku](https://www.instagram.com/dolbat_ku/)
 
-1. GitHub에서 공개 저장소를 만듭니다. 예시 이름은 `dolbat-lounge`입니다.
-2. 이 파일과 `docs`, `setup` 폴더를 저장소의 첫 화면에 업로드하고 main 브랜치에 저장합니다. 압축 파일 자체를 올리면 사이트가 열리지 않습니다.
-3. 저장소 **Settings → Pages**에서 **Deploy from a branch**를 고르고 **main /docs**를 선택한 뒤 저장합니다.
-4. 배포가 끝나면 같은 화면의 **Visit site**에서 공개 주소를 확인합니다. 저장소 소유자만 GitHub를 사용합니다.
+## GitHub Pages 배포
+
+이 저장소의 `main` 브랜치에는 운영용 사이트와 서버 구성이 있습니다. 현재 공개 사이트는 `gh-pages` 브랜치의 루트에서 배포합니다. 사이트를 업데이트할 때는 `main`의 `docs/` 안에 있는 파일을 `gh-pages`의 루트에도 반영합니다. 배포 상태와 주소는 저장소의 **Settings → Pages**에서 확인할 수 있습니다.
 
 ## 실제 사용
 
