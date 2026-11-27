@@ -25,3 +25,5 @@
 .question-filters .mobile-filter-wrap { margin-top: 0; }
 .topic-filter { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: .35rem .55rem; background: #fff; font-size: .87rem; }
 .question-topic { display: inline-block; color: var(--pine); background: #e9efe4; border-radius: 12px; padding: .2rem .55rem; font-size: .82rem; }
+
+.attachment-download { display: block; margin: .55rem 0; max-width: 100%; text-align: left; overflow-wrap: anywhere; }

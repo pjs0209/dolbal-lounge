@@ -11,7 +11,7 @@ const Club = (() => {
     session=value ? {access_token:value.access_token,refresh_token:value.refresh_token,user:value.user,expires_at:value.expires_at || Date.now()/1000 + value.expires_in} : null;
     if(session) sessionStorage.setItem(sid,JSON.stringify(session)); else sessionStorage.removeItem(sid);
   }
-  async function api(path, {method="GET", body, auth=false, headers={}}={}) {
+  async function api(path, {method="GET", body, auth=false, headers={}, binary=false}={}) {
     if(!ready) throw Error("운영 서버 연결 설정을 확인해 주세요.");
     if(auth && !session) throw Error("다시 로그인해 주세요.");
     if(auth && session.expires_at < Date.now()/1000 + 60) {
@@ -21,7 +21,13 @@ const Club = (() => {
     }
     const req={method,headers:{apikey:cfg.publishableKey,...headers},cache:"no-store"};
     if(auth) req.headers.Authorization="Bearer "+session.access_token;
-    if(body!==undefined){req.headers["Content-Type"]="application/json";req.body=JSON.stringify(body);}
+    if(body instanceof Blob){
+      req.headers["Content-Type"]="application/octet-stream";
+      req.body=body;
+    }else if(body!==undefined){
+      req.headers["Content-Type"]="application/json";
+      req.body=JSON.stringify(body);
+    }
     const res=await fetch(base+path,req);
     if(!res.ok){
       const e=Error(res.status===409?"사용 중인 아이디이거나 등록할 수 없는 정보예요.":res.status===429?"요청이 많아요. 잠시 후 다시 시도해 주세요.":res.status===403?"이 작업에는 승인된 부원 권한이 필요해요.":res.status===401?"인증이 만료되었어요. 다시 로그인해 주세요.":"요청을 완료하지 못했어요. 입력 내용과 연결을 확인해 주세요.");
@@ -30,6 +36,7 @@ const Club = (() => {
       e.code=problem?.error_code || problem?.code;
       throw e;
     }
+    if(binary)return res.blob();
     const str=await res.text();return str?JSON.parse(str):null;
   }
   // A stable, per-account salt and a fixed-size credential allow Auth to verify the entire passphrase.
@@ -134,11 +141,49 @@ const Club = (() => {
     const [p,q,a]=await Promise.all([all("profiles",profileCols,"id"),all("questions","id,author,author_name,author_department,author_class,field,target,title,body,created_at","id"),all("answers","id,question_id,author,author_name,author_department,author_class,body,created_at","id")]);
     return {profiles:p,questions:q,answers:a,me};
   }
-  async function put(name,obj){
-    if(demo){const d=await db();await new Promise((resolve,reject)=>{const tx=d.transaction(name,"readwrite");tx.objectStore(name).put(obj);tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(Error("이 브라우저에 저장하지 못했어요. 사진 크기를 줄여 주세요."));});return;}
-    const row={...obj};delete row.created_at;
-    try{await table(name,"",{method:"POST",body:row});}
-    catch(e){if(e.status!==409)throw e;const existing=await table(name,"id=eq."+row.id+"&select=author");if(existing[0]?.author!==row.author)throw e;}
+  const attachmentBucket="dolbat-attachments";
+  const attachmentRoute=(path,authenticated=false)=>"/storage/v1/object/"+
+    (authenticated?"authenticated/":"")+attachmentBucket+"/"+path.split("/").map(encodeURIComponent).join("/");
+  async function put(name,obj,file){
+    const row={...obj};
+    if(file){
+      row.attachment_path=row.author+"/"+name+"/"+row.id+"/"+crypto.randomUUID();
+      row.attachment_name=Array.from(file.name).slice(0,255).join("")||"첨부파일";
+    }
+    if(demo){
+      if(file)row.attachment_blob=file;
+      const d=await db();
+      await new Promise((resolve,reject)=>{
+        const tx=d.transaction(name,"readwrite");
+        tx.objectStore(name).put(row);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=tx.onabort=()=>reject(Error("이 브라우저에 저장하지 못했어요. 파일 크기를 줄여 주세요."));
+      });
+      return;
+    }
+    delete row.created_at;
+    const path=row.attachment_path;
+    if(path)await api(attachmentRoute(path),{method:"POST",body:file,auth:true});
+    try{
+      await table(name,"",{method:"POST",body:row});
+    }catch(error){
+      if(error.status>=400&&error.status<500&&path){
+        await api("/storage/v1/object/"+attachmentBucket,{method:"DELETE",body:{prefixes:[path]},auth:true}).catch(()=>{});
+      }
+      if(error.status!==409)throw error;
+      const existing=await table(name,"id=eq."+row.id+"&select=author");
+      if(existing[0]?.author!==row.author)throw error;
+    }
+  }
+  async function download(path){
+    if(!demo)return api(attachmentRoute(path,true),{auth:true,binary:true});
+    const [,tableName,id]=path.split("/");
+    const d=await db();
+    return new Promise((resolve,reject)=>{
+      const req=d.transaction(tableName).objectStore(tableName).get(id);
+      req.onsuccess=()=>req.result?.attachment_blob?resolve(req.result.attachment_blob):reject(Error("첨부파일을 찾을 수 없어요."));
+      req.onerror=()=>reject(Error("첨부파일을 열 수 없어요."));
+    });
   }
   async function details(id,state){
     if(demo)return {q:state.questions.find(q=>q.id===id),a:state.answers.filter(a=>a.question_id===id)};
@@ -163,7 +208,7 @@ const Club = (() => {
     if(demo)return profiles.filter(p=>p.approved&&p.role==="졸업생").map(p=>p.employment?.industry).filter(Boolean);
     return rpc("industry_options",{});
   }
-  return {demo,ready,sample,load,put,details,saveWork,industries,
+  return {demo,ready,sample,load,put,details,download,saveWork,industries,
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
     authenticate,
     join:p=>rpc("join_member",{p_nickname:p.nickname,p_member_name:p.member_name,p_role:p.role,

@@ -50,7 +50,30 @@ function authorDetails(formData){
 }
 const note='<p class="hint">체험용 가상 부원과 예시 글입니다. 직접 등록한 내용은 이 브라우저에만 저장돼요.</p>';
 const photoTag=s=>/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s||"")?'<img class="photo" alt="게시물에 첨부한 사진" src="'+s+'">':"";
-const fileInput='<label>사진 첨부 <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"><small>JPG·PNG·WebP 한 장, 최대 12MB</small></label>';
+const fileInput='<label>파일 첨부 <input type="file" name="attachment"><small>파일 형식 제한 없이 한 개, 최대 12MB</small></label>';
+function attachmentTag(post){
+  return photoTag(post.photo)+(post.attachment_path&&post.attachment_name?
+    '<button type="button" class="outline attachment-download" data-act="attachment" data-id="'+
+    esc(post.attachment_path)+'" data-filename="'+esc(post.attachment_name)+'">'+esc(post.attachment_name)+' 다운로드</button>':"");
+}
+async function saveAttachment(source){
+  const blob=await Club.download(source.dataset.id);
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download=source.dataset.filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30_000);
+}
+function selectedAttachment(form){
+  const file=form.get("attachment");
+  if(!file?.name)return null;
+  if(file.size>12*1024*1024)throw Error("12MB 이하의 파일을 첨부해 주세요.");
+  return file;
+}
+
 let toastTimer;
 function toast(msg){$("#toast").textContent=msg;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("#toast").textContent="",3200);}
 function popup(title,body){detailVersion++;$("#modal-title").textContent=title;$("#modal-body").innerHTML=body;if(!modal.open)modal.showModal();modal.scrollTop=0;}
@@ -113,14 +136,13 @@ function formRun(form,task){
     finally{submit.disabled=false;delete form.dataset.busy;}};
 }
 async function toPhoto(file){
-  if(!file||!file.size)return null;
-  if(file.size>12*1024*1024||!["image/jpeg","image/png","image/webp"].includes(file.type))throw Error("12MB 이하의 JPG, PNG, WebP 사진을 골라 주세요.");
+  if(!file?.size||!["image/jpeg","image/png","image/webp"].includes(file.type))return null;
   const img=new Image(),u=URL.createObjectURL(file);try{
     img.src=u;await img.decode();const scale=Math.min(1,1200/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));const ctx=c.getContext("2d");
     if(!ctx)throw Error("사진을 읽을 수 없어요.");ctx.fillStyle="white";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
     for(const q of [.82,.65,.45,.3]){const d=c.toDataURL("image/jpeg",q);if(d.length<=650000)return d;}
     throw Error("사진을 더 작은 크기로 선택해 주세요.");
-  }finally{URL.revokeObjectURL(u);}
+  }catch{return null;}finally{URL.revokeObjectURL(u);}
 }
 const errSlot='<p class="error" role="alert"></p>';
 function employmentSummary(profile){
@@ -226,7 +248,8 @@ function compose(target=""){
   formRun(form,async f=>{const title=f.get("title").trim(),body=f.get("body").trim();if(title.length<2||!body)throw Error("제목과 질문 내용을 입력해 주세요.");
     const field=f.get("field");
     if(!questionTopics.includes(field))throw Error("질문 주제를 선택해 주세요.");
-    await Club.put("questions",{id,field,author:state.me.id,...authorDetails(f),target:target||null,title,body,photo:await toPhoto(f.get("photo")),created_at:new Date().toISOString()});
+    const file=selectedAttachment(f);
+    await Club.put("questions",{id,field,author:state.me.id,...authorDetails(f),target:target||null,title,body,photo:await toPhoto(file),created_at:new Date().toISOString()},file);
     query="";status="";topic="";if(area()!=="questions")location.hash="questions";await refresh();if(phase==="error")throw Error("저장 후 게시판을 다시 불러오지 못했어요. 화면을 새로고침해 주세요.");await read(id);});
 }
 async function read(id){
@@ -234,13 +257,14 @@ async function read(id){
   try{
     const {q,a}=await Club.details(id,state);if(!modal.open||version!==detailVersion)return;if(!q)throw Error("질문을 찾을 수 없어요.");
     a.sort((x,y)=>x.created_at.localeCompare(y.created_at));
-    const replyHTML=a.map(r=>'<article class="reply"><div class="meta"><strong>'+esc(byline(r))+'</strong><span>'+esc(labelRole(person(r.author)))+'</span><span>·</span>'+day(r.created_at)+'</div><p class="article">'+esc(r.body)+'</p>'+photoTag(r.photo)+'</article>').join("");
-    popup(q.title,'<div class="labelrow">'+topicBadge(q)+'<span class="meta">'+esc(byline(q))+' · '+day(q.created_at)+'</span></div>'+(q.target?'<p class="notice">'+esc(nameOf(q.target))+' 선배에게 보낸 질문</p>':"")+'<p class="article">'+esc(q.body)+'</p>'+photoTag(q.photo)+'<section class="replies"><h3>답변 '+a.length+'</h3>'+(replyHTML||'<p class="dim">첫 답변을 기다리고 있어요.</p>')+'</section><form class="form detail-form" id="reply">'+authorFields()+'<label>답변 남기기<textarea maxlength="5000" name="body" required placeholder="후배에게 도움이 될 경험을 들려주세요."></textarea></label>'+fileInput+errSlot+'<button type="submit" class="solid">답변 등록</button></form>');
-    const aid=crypto.randomUUID();formRun($("#reply"),async f=>{const body=f.get("body").trim();if(!body)throw Error("답변 내용을 입력해 주세요.");await Club.put("answers",{id:aid,question_id:id,author:state.me.id,...authorDetails(f),body,photo:await toPhoto(f.get("photo")),created_at:new Date().toISOString()});await refresh();if(phase==="error")throw Error("저장 후 목록을 다시 불러오지 못했어요.");await read(id);});
+    const replyHTML=a.map(r=>'<article class="reply"><div class="meta"><strong>'+esc(byline(r))+'</strong><span>'+esc(labelRole(person(r.author)))+'</span><span>·</span>'+day(r.created_at)+'</div><p class="article">'+esc(r.body)+'</p>'+attachmentTag(r)+'</article>').join("");
+    popup(q.title,'<div class="labelrow">'+topicBadge(q)+'<span class="meta">'+esc(byline(q))+' · '+day(q.created_at)+'</span></div>'+(q.target?'<p class="notice">'+esc(nameOf(q.target))+' 선배에게 보낸 질문</p>':"")+'<p class="article">'+esc(q.body)+'</p>'+attachmentTag(q)+'<section class="replies"><h3>답변 '+a.length+'</h3>'+(replyHTML||'<p class="dim">첫 답변을 기다리고 있어요.</p>')+'</section><form class="form detail-form" id="reply">'+authorFields()+'<label>답변 남기기<textarea maxlength="5000" name="body" required placeholder="후배에게 도움이 될 경험을 들려주세요."></textarea></label>'+fileInput+errSlot+'<button type="submit" class="solid">답변 등록</button></form>');
+    const aid=crypto.randomUUID();formRun($("#reply"),async f=>{const body=f.get("body").trim();if(!body)throw Error("답변 내용을 입력해 주세요.");const file=selectedAttachment(f);await Club.put("answers",{id:aid,question_id:id,author:state.me.id,...authorDetails(f),body,photo:await toPhoto(file),created_at:new Date().toISOString()},file);await refresh();if(phase==="error")throw Error("저장 후 목록을 다시 불러오지 못했어요.");await read(id);});
   }catch(e){if(modal.open&&version===detailVersion)popup("질문 보기",'<p class="error">'+esc(e.message)+'</p>');}
 }
 function profile(id){const p=person(id);if(!p?.listed||!state.me?.approved)return;popup(p.nickname+' 선배','<div class="labelrow"><span class="meta">'+esc([p.department,"졸업생"].filter(Boolean).join(" · "))+'</span></div>'+employmentSummary(p)+'<p class="article">'+esc(p.bio||"질문을 기다리고 있어요.")+'</p>'+button("new","이 선배에게 질문하기","solid",p.id));}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,id=b.dataset.id;try{switch(act){
+  case "attachment":b.disabled=true;try{await saveAttachment(b);}finally{b.disabled=false;}break;
   case "editWork":editWork();break;case "profile":profile(id);break;case "read":await read(id);break;case "new":compose(id);break;
   case "status":status=id;paint();break;
   case "mentors":case "questions":location.hash=act;break;
