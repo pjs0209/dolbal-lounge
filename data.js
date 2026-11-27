@@ -132,8 +132,11 @@ const Club = (() => {
   async function localRows(name){
     const d=await db();return new Promise((resolve,reject)=>{const r=d.transaction(name).objectStore(name).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
   }
+  const demoDeletedKey="dolbat-demo-deleted-questions";
+  let deletedDemoQuestions=new Set();
+  try{deletedDemoQuestions=new Set(JSON.parse(localStorage.getItem(demoDeletedKey)||"[]"));}catch{}
   async function load(){
-    if(demo){const [q,a]=await Promise.all([localRows("questions"),localRows("answers")]);return {profiles,questions:[...sampleQuestions,...q],answers:[...sampleReplies,...a],me:profiles.find(p=>p.id===role)};}
+    if(demo){const [q,a]=await Promise.all([localRows("questions"),localRows("answers")]);return {profiles,questions:[...sampleQuestions,...q].filter(post=>!deletedDemoQuestions.has(post.id)),answers:[...sampleReplies,...a].filter(post=>!deletedDemoQuestions.has(post.question_id)),me:profiles.find(p=>p.id===role)};}
     const blank={profiles:[],questions:[],answers:[],me:null};
     if(!ready || !session)return blank;
     const me=(await table("profiles","id=eq."+encodeURIComponent(session.user.id)+"&select="+profileCols))[0];
@@ -196,6 +199,17 @@ const Club = (() => {
       rows.push(...part);if(part.length<15)return rows;cursor=part[part.length-1].id;}
   }
   const rpc=(name,body)=>api("/rest/v1/rpc/dolbal_"+name,{method:"POST",auth:true,body});
+  async function deleteQuestion(id){
+    if(demo){
+      const {questions}=await load();
+      if(questions.find(q=>q.id===id)?.author!==role)throw Error("내 질문만 삭제할 수 있어요.");
+      const next=new Set([...deletedDemoQuestions,id]);
+      localStorage.setItem(demoDeletedKey,JSON.stringify([...next]));
+      deletedDemoQuestions=next;
+      return;
+    }
+    if(!await rpc("delete_own_question",{p_id:id}))throw Error("내 질문만 삭제할 수 있어요.");
+  }
   async function saveWork({company,industry,listed}){
     if(demo){
       if(role!=="grad")throw Error("졸업생만 근무 정보를 수정할 수 있어요.");
@@ -208,7 +222,7 @@ const Club = (() => {
     if(demo)return profiles.filter(p=>p.approved&&p.role==="졸업생").map(p=>p.employment?.industry).filter(Boolean);
     return rpc("industry_options",{});
   }
-  return {demo,ready,sample,load,put,details,download,saveWork,industries,
+  return {demo,ready,sample,load,put,details,download,deleteQuestion,saveWork,industries,
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
     authenticate,
     join:p=>rpc("join_member",{p_nickname:p.nickname,p_member_name:p.member_name,p_role:p.role,

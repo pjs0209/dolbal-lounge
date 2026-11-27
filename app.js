@@ -193,13 +193,44 @@ function editWork(){
     close();toast("근무 정보를 저장했어요.");
   });
 }
+function activitySections(){
+  if(!state.me?.approved)return "";
+  const id=state.me.id;
+  const answeredIds=new Set(state.answers.filter(answer=>answer.author===id).map(answer=>answer.question_id));
+  const questionLists=[
+    ["내 질문",state.questions.filter(question=>question.author===id),"작성한 질문이 없어요."],
+    ["내가 답변한 질문",state.questions.filter(question=>answeredIds.has(question.id)),"답변을 남긴 질문이 없어요."]
+  ];
+  return questionLists.map(([label,questions,empty])=>
+    '<section class="profile-activity"><h3>'+label+' <span class="count">'+questions.length+'</span></h3>'+
+    (questions.length?
+      '<ul>'+questions.sort((a,b)=>b.created_at.localeCompare(a.created_at)).map(q=>
+        '<li>'+button("read",topicBadge(q)+' <span>'+esc(q.title)+'</span>',"outline activity-question",q.id)+'</li>'
+      ).join("")+'</ul>':'<p class="dim">'+empty+'</p>')+'</section>'
+  ).join("");
+}
+function confirmQuestionDelete(id){
+  if(!state.me?.approved||state.questions.find(q=>q.id===id)?.author!==state.me.id)return;
+  popup("질문을 삭제할까요?",'<p>이 질문과 연결된 답변, 첨부파일이 게시판에서 함께 내려갑니다.</p>'+
+    '<div class="chips">'+button("read","취소","outline",id)+button("deleteQuestion","질문 삭제","danger",id)+'</div>');
+}
+async function deleteQuestion(id){
+  const version=detailVersion;
+  await Club.deleteQuestion(id);
+  generation++;
+  state.questions=state.questions.filter(q=>q.id!==id);
+  state.answers=state.answers.filter(a=>a.question_id!==id);
+  if(modal.open&&version===detailVersion)close();
+  paint();
+  toast("질문을 삭제했어요.");
+}
 function account(){
   const editButton=state.me?.role==="졸업생"?button("editWork","근무 정보 수정"):"";
-  if(Club.demo){popup("체험할 부원 선택",note+'<div class="chips">'+button("role","재학생으로 체험",Club.role()==="visitor"?"solid":"outline","visitor")+button("role","졸업생으로 체험",Club.role()==="grad"?"solid":"outline","grad")+editButton+'</div>');return;}
+  if(Club.demo){popup("체험할 부원 선택",note+'<div class="chips">'+button("role","재학생으로 체험",Club.role()==="visitor"?"solid":"outline","visitor")+button("role","졸업생으로 체험",Club.role()==="grad"?"solid":"outline","grad")+editButton+'</div>'+activitySections());return;}
   if(!Club.ready){popup("부원 로그인",'<p class="hint">운영 서버 연결을 준비 중이에요.</p>');return;}
   if(!Club.hasSession()){login();return;}
   if(!state.me){join();return;}
-  popup("내 가입 상태",'<p class="hint">'+(state.me.approved?"승인된 돌밭 부원이에요.":"운영진이 부원 여부를 확인하고 있어요. 승인 후 이 화면에서 상태를 새로 확인할 수 있어요.")+'</p><p>'+esc(state.me.nickname)+' · '+esc([state.me.department,state.me.role].filter(Boolean).join(' · '))+'</p><div class="chips">'+editButton+button("check","상태 새로고침")+button("logout","로그아웃")+'</div>');
+  popup(state.me.approved?"내 프로필":"내 가입 상태",'<p class="hint">'+(state.me.approved?"승인된 돌밭 부원이에요.":"운영진이 부원 여부를 확인하고 있어요. 승인 후 이 화면에서 상태를 새로 확인할 수 있어요.")+'</p><p>'+esc(state.me.nickname)+' · '+esc([state.me.department,state.me.role].filter(Boolean).join(' · '))+'</p><div class="chips">'+editButton+button("check","상태 새로고침")+button("logout","로그아웃")+'</div>'+activitySections());
 }
 function login(isNew=false){
   const title=isNew?"부원 계정 만들기":"부원 로그인";
@@ -258,12 +289,15 @@ async function read(id){
     const {q,a}=await Club.details(id,state);if(!modal.open||version!==detailVersion)return;if(!q)throw Error("질문을 찾을 수 없어요.");
     a.sort((x,y)=>x.created_at.localeCompare(y.created_at));
     const replyHTML=a.map(r=>'<article class="reply"><div class="meta"><strong>'+esc(byline(r))+'</strong><span>'+esc(labelRole(person(r.author)))+'</span><span>·</span>'+day(r.created_at)+'</div><p class="article">'+esc(r.body)+'</p>'+attachmentTag(r)+'</article>').join("");
-    popup(q.title,'<div class="labelrow">'+topicBadge(q)+'<span class="meta">'+esc(byline(q))+' · '+day(q.created_at)+'</span></div>'+(q.target?'<p class="notice">'+esc(nameOf(q.target))+' 선배에게 보낸 질문</p>':"")+'<p class="article">'+esc(q.body)+'</p>'+attachmentTag(q)+'<section class="replies"><h3>답변 '+a.length+'</h3>'+(replyHTML||'<p class="dim">첫 답변을 기다리고 있어요.</p>')+'</section><form class="form detail-form" id="reply">'+authorFields()+'<label>답변 남기기<textarea maxlength="5000" name="body" required placeholder="후배에게 도움이 될 경험을 들려주세요."></textarea></label>'+fileInput+errSlot+'<button type="submit" class="solid">답변 등록</button></form>');
+    const deleteButton=q.author===state.me?.id?button("confirmDelete","질문 삭제","outline danger",q.id):"";
+    popup(q.title,'<div class="labelrow">'+topicBadge(q)+'<span class="meta">'+esc(byline(q))+' · '+day(q.created_at)+'</span></div>'+(q.target?'<p class="notice">'+esc(nameOf(q.target))+' 선배에게 보낸 질문</p>':"")+'<p class="article">'+esc(q.body)+'</p>'+attachmentTag(q)+deleteButton+'<section class="replies"><h3>답변 '+a.length+'</h3>'+(replyHTML||'<p class="dim">첫 답변을 기다리고 있어요.</p>')+'</section><form class="form detail-form" id="reply">'+authorFields()+'<label>답변 남기기<textarea maxlength="5000" name="body" required placeholder="후배에게 도움이 될 경험을 들려주세요."></textarea></label>'+fileInput+errSlot+'<button type="submit" class="solid">답변 등록</button></form>');
     const aid=crypto.randomUUID();formRun($("#reply"),async f=>{const body=f.get("body").trim();if(!body)throw Error("답변 내용을 입력해 주세요.");const file=selectedAttachment(f);await Club.put("answers",{id:aid,question_id:id,author:state.me.id,...authorDetails(f),body,photo:await toPhoto(file),created_at:new Date().toISOString()},file);await refresh();if(phase==="error")throw Error("저장 후 목록을 다시 불러오지 못했어요.");await read(id);});
   }catch(e){if(modal.open&&version===detailVersion)popup("질문 보기",'<p class="error">'+esc(e.message)+'</p>');}
 }
 function profile(id){const p=person(id);if(!p?.listed||!state.me?.approved)return;popup(p.nickname+' 선배','<div class="labelrow"><span class="meta">'+esc([p.department,"졸업생"].filter(Boolean).join(" · "))+'</span></div>'+employmentSummary(p)+'<p class="article">'+esc(p.bio||"질문을 기다리고 있어요.")+'</p>'+button("new","이 선배에게 질문하기","solid",p.id));}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,id=b.dataset.id;try{switch(act){
+  case "confirmDelete":confirmQuestionDelete(id);break;
+  case "deleteQuestion":b.disabled=true;try{await deleteQuestion(id);}finally{b.disabled=false;}break;
   case "attachment":b.disabled=true;try{await saveAttachment(b);}finally{b.disabled=false;}break;
   case "editWork":editWork();break;case "profile":profile(id);break;case "read":await read(id);break;case "new":compose(id);break;
   case "status":status=id;paint();break;
