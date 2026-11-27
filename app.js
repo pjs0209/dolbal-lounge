@@ -115,10 +115,14 @@ function account(){
 }
 function login(isNew=false){
   const title=isNew?"부원 계정 만들기":"부원 로그인";
-  popup(title,'<form class="form" id="login"><p class="dim">'+(isNew?"부원 확인에 사용할 계정을 만들어 주세요.":"가입할 때 만든 돌밭 아이디로 로그인해 주세요.")+'</p><label>돌밭 아이디<input required name="handle" autocomplete="username" pattern="[a-z0-9_]{3,24}" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="영문 소문자, 숫자, 밑줄 3~24자"></label><label>비밀번호<input required type="password" name="password" minlength="'+(isNew?12:1)+'" maxlength="72" autocomplete="'+(isNew?"new-password":"current-password")+'"></label>'+(isNew?'<small>12자 이상으로 설정해 주세요.</small>':"")+errSlot+'<button type="submit" class="solid">'+(isNew?"계정 만들기":"로그인")+'</button></form>'+button(isNew?"login":"enroll",isNew?"이미 계정이 있어요":"처음 방문하셨나요? 부원 가입","switch"));
+  popup(title,'<form class="form" id="login"><p class="dim">'+(isNew?"부원 확인에 사용할 계정을 만들어 주세요.":"가입할 때 만든 돌밭 아이디로 로그인해 주세요.")+'</p><label>돌밭 아이디<input required name="handle" autocomplete="username" pattern="[a-z0-9_]{3,24}" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="영문 소문자, 숫자, 밑줄 3~24자"></label><label>비밀번호<input required type="password" name="password" autocomplete="'+(isNew?"new-password":"current-password")+'"></label>'+errSlot+'<button type="submit" class="solid">'+(isNew?"계정 만들기":"로그인")+'</button></form>'+button(isNew?"login":"enroll",isNew?"이미 계정이 있어요":"처음 방문하셨나요? 부원 가입","switch"));
   formRun($("#login"),async f=>{const handle=f.get("handle").trim().toLowerCase(),password=f.get("password");
-    if(isNew){if(new TextEncoder().encode(password).length>72)throw Error("비밀번호는 UTF-8 기준 72바이트 이내로 정해 주세요.");await Club.enroll(handle,password);}
-    try{await Club.signIn(handle,password);}catch(e){if([400,401].includes(e.status))throw Error("아이디와 비밀번호를 확인해 주세요.");throw e;}
+    try {
+      await Club.authenticate(handle,password,isNew);
+    } catch(e) {
+      if(e.code==="invalid_credentials") throw Error("아이디와 비밀번호를 확인해 주세요.");
+      throw e;
+    }
     await refresh();if(phase==="error")throw Error(failure);if(state.me?.approved)close();else account();
   });
 }

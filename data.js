@@ -26,9 +26,41 @@ const Club = (() => {
     const res=await fetch(base+path,req);
     if(!res.ok){
       const e=Error(res.status===409?"사용 중인 아이디이거나 등록할 수 없는 정보예요.":res.status===429?"요청이 많아요. 잠시 후 다시 시도해 주세요.":res.status===403?"이 작업에는 승인된 부원 권한이 필요해요.":res.status===401?"인증이 만료되었어요. 다시 로그인해 주세요.":"요청을 완료하지 못했어요. 입력 내용과 연결을 확인해 주세요.");
-      e.status=res.status; throw e;
+      const problem=await res.json().catch(()=>null);
+      e.status=res.status;
+      e.code=problem?.error_code || problem?.code;
+      throw e;
     }
     const str=await res.text();return str?JSON.parse(str):null;
+  }
+  // A stable, per-account salt and a fixed-size credential allow Auth to verify the entire passphrase.
+  async function passwordCredential(handle,password) {
+    if(typeof password!=="string" || !password.length) throw Error("비밀번호를 입력해 주세요.");
+    const utf8=new TextEncoder();
+    const key=await crypto.subtle.importKey("raw",utf8.encode(password),"PBKDF2",false,["deriveBits"]);
+    const salt=utf8.encode("dolbat/lounge/password/v1/"+base+"/"+handle);
+    const bits=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",iterations:600000,salt},key,256);
+    return "Db1!"+Array.from(new Uint8Array(bits),byte=>byte.toString(16).padStart(2,"0")).join("");
+  }
+  async function authenticate(handle,password,register=false) {
+    const credential=await passwordCredential(handle,password);
+    const email=handle+"@members.dolbal.invalid";
+    const signIn=value=>api("/auth/v1/token?grant_type=password",{method:"POST",body:{email,password:value}});
+    if(register) {
+      await api("/functions/v1/dolbal-enroll",{method:"POST",headers:{Authorization:"Bearer "+cfg.enrollmentGatewayKey},body:{handle,credential}});
+    }
+    let result;
+    try {
+      result=await signIn(credential);
+    } catch(error) {
+      // Older clients created accounts with the original bcrypt input range.
+      if(register || error.code!=="invalid_credentials" || password.length<12 || password.length>72 ||
+          new TextEncoder().encode(password).length>72) throw error;
+      const legacy=await signIn(password);
+      if(legacy.user?.app_metadata?.dolbat_password_format==="pbkdf2-v1") throw error;
+      result=legacy;
+    }
+    saveSession(result);
   }
   const profileCols="id,nickname,role,department,bio,listed,approved";
   const table=(name,query="",opts={})=>api("/rest/v1/dolbal_"+name+(query?"?"+query:""),{auth:true,...opts});
@@ -108,8 +140,7 @@ const Club = (() => {
   }
   return {departments,demo,ready,sample,load,put,details,
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
-    signIn:async(handle,password)=>saveSession(await api("/auth/v1/token?grant_type=password",{method:"POST",body:{email:handle+"@members.dolbal.invalid",password}})),
-    enroll:(handle,password)=>api("/functions/v1/dolbal-enroll",{method:"POST",headers:{Authorization:"Bearer "+cfg.enrollmentGatewayKey},body:{handle,password}}),
+    authenticate,
     join:profile=>table("profiles","",{method:"POST",body:{...profile,id:session.user.id}}),
     logout:async()=>{try{if(session)await api("/auth/v1/logout?scope=local",{method:"POST",auth:true});}finally{saveSession(null);}}
   };
