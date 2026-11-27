@@ -101,4 +101,84 @@ end;
 $$;
 revoke all on function public.dolbal_allow_signup() from public, anon, authenticated;
 grant execute on function public.dolbal_allow_signup() to service_role;
+create table public.dolbal_employment (
+  profile_id uuid primary key references public.dolbal_profiles(id) on delete cascade,
+  company text not null default '' check (length(company) <= 160),
+  industry text not null default '' check (length(industry) <= 160)
+);
+alter table public.dolbal_employment enable row level security;
+revoke all on public.dolbal_employment from public, anon, authenticated;
+grant select, insert (profile_id, company, industry), update (company, industry)
+  on public.dolbal_employment to authenticated;
+
+create policy dolbal_employment_read on public.dolbal_employment for select to authenticated
+using (profile_id = (select auth.uid()) or (
+  (select dolbal_internal.member_ok()) and exists (
+    select 1 from public.dolbal_profiles p where p.id = profile_id
+      and p.role = '졸업생' and p.approved and p.listed
+  )
+));
+create policy dolbal_employment_insert on public.dolbal_employment for insert to authenticated
+with check (profile_id = (select auth.uid()) and exists (
+  select 1 from public.dolbal_profiles p where p.id = profile_id and p.role = '졸업생'
+));
+create policy dolbal_employment_update on public.dolbal_employment for update to authenticated
+using (profile_id = (select auth.uid()))
+with check (profile_id = (select auth.uid()) and exists (
+  select 1 from public.dolbal_profiles p where p.id = profile_id and p.role = '졸업생'
+));
+
+grant update (listed) on public.dolbal_profiles to authenticated;
+create policy dolbal_grad_visibility on public.dolbal_profiles for update to authenticated
+using (id = (select auth.uid()) and role = '졸업생')
+with check (id = (select auth.uid()) and role = '졸업생');
+
+create function public.dolbal_save_employment(p_company text, p_industry text, p_listed boolean)
+returns void language plpgsql security invoker set search_path = '' as $$
+begin
+  update public.dolbal_profiles set listed = p_listed where id = auth.uid() and role = '졸업생';
+  if not found then raise exception 'Graduate profile required' using errcode = '42501'; end if;
+  insert into public.dolbal_employment(profile_id, company, industry)
+  values (auth.uid(), btrim(coalesce(p_company,'')), btrim(coalesce(p_industry,'')))
+  on conflict (profile_id) do update set company = excluded.company, industry = excluded.industry;
+end;
+$$;
+create function public.dolbal_join_member(
+  p_nickname text, p_member_name text, p_role text, p_department text, p_bio text,
+  p_company text, p_industry text, p_listed boolean
+) returns void language plpgsql security invoker set search_path = '' as $$
+begin
+  insert into public.dolbal_profiles(id,nickname,member_name,role,department,bio)
+  values (auth.uid(),p_nickname,p_member_name,p_role,p_department,p_bio);
+  if p_role = '졸업생' then
+    perform public.dolbal_save_employment(p_company,p_industry,p_listed);
+  end if;
+end;
+$$;
+revoke all on function public.dolbal_save_employment(text,text,boolean),
+  public.dolbal_join_member(text,text,text,text,text,text,text,boolean) from public, anon, authenticated;
+grant execute on function public.dolbal_save_employment(text,text,boolean),
+  public.dolbal_join_member(text,text,text,text,text,text,text,boolean) to authenticated;
+
+-- Joining members receive only distinct industry labels from approved graduates.
+create function dolbal_internal.industry_options() returns text[]
+language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(labels.label order by labels.label), array[]::text[])
+  from (
+    select min(btrim(e.industry)) as label
+    from public.dolbal_employment e join public.dolbal_profiles p on p.id = e.profile_id
+    where (select auth.uid()) is not null and p.approved and p.role = '졸업생'
+      and e.industry ~ '[^[:space:]]'
+    group by lower(regexp_replace(btrim(e.industry), '[[:space:]]+', ' ', 'g'))
+  ) labels;
+$$;
+revoke all on function dolbal_internal.industry_options() from public, anon, authenticated;
+grant execute on function dolbal_internal.industry_options() to authenticated;
+create function public.dolbal_industry_options() returns text[]
+language sql stable security invoker set search_path = '' as $$
+  select dolbal_internal.industry_options();
+$$;
+revoke all on function public.dolbal_industry_options() from public, anon, authenticated;
+grant execute on function public.dolbal_industry_options() to authenticated;
+
 commit;

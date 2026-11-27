@@ -66,7 +66,7 @@ function paint(){
   else if(phase==="error")main='<div class="empty"><strong>게시판을 불러오지 못했어요.</strong>'+esc(failure)+'<div>'+button("retry","다시 불러오기")+(Club.hasSession()?button("logout","로그아웃"):"")+'</div></div>';
   else if(!enabled)main='<div class="empty"><strong>'+(state.me?"부원 확인을 기다리고 있어요.":"돌밭 부원 전용 공간이에요.")+'</strong><p>'+(state.me?"승인이 끝나면 질문·답변과 선배 명단을 볼 수 있어요.":"졸업생과 재학생 모두 가입 후 참여할 수 있어요.")+'</p>'+button("account",state.me?"가입 상태 보기":"참여하기","solid")+'</div>';
   else {
-    const searchBox='<label class="search"><input type="search" id="search" autocomplete="off" aria-label="검색" placeholder="'+(mentors?"선배 닉네임, 학과, 소개 검색":"질문 제목, 본문, 답변 검색")+'" value="'+esc(query)+'"></label>';
+    const searchBox='<label class="search"><input type="search" id="search" autocomplete="off" aria-label="검색" placeholder="'+(mentors?"닉네임, 전공, 회사, 업종, 소개 검색":"질문 제목, 본문, 답변 검색")+'" value="'+esc(query)+'"></label>';
     const answerStatusFilter='<div class="mobile-filter-wrap"><select aria-label="답변 상태" class="mobile-filter" id="mfilter">'+picks(["전체 질문","답변 기다리는 중","답변 있음"],status||"전체 질문")+'</select></div>';
     main='<div class="toolbar">'+searchBox+(mentors?"":answerStatusFilter)+'</div><div id="results"></div>';
   }
@@ -80,8 +80,8 @@ function results(){
   const words=norm(query).split(/\s+/).filter(Boolean);
   const match=s=>words.every(w=>norm(s).includes(w));
   if(view==="mentors"){
-    const list=state.profiles.filter(p=>p.role==="졸업생"&&p.listed&&match([p.nickname,p.department,p.bio].join(" ")));
-    $("#total").textContent=list.length+"명";root.innerHTML=list.length?'<div class="mentor-grid">'+list.map(p=>'<button class="mentor" data-act="profile" data-id="'+esc(p.id)+'"><div class="personline"><span class="avatar">'+esc(p.nickname[0])+'</span><div><h3>'+esc(p.nickname)+'</h3><span class="meta">'+esc(p.department||'')+'</span></div></div><p>'+esc(p.bio||"질문을 기다리고 있어요.")+'</p></button>').join("")+'</div>':emptyResults();return;
+    const list=state.profiles.filter(p=>p.role==="졸업생"&&p.listed&&match([p.nickname,p.department,p.employment?.company,p.employment?.industry,p.bio].join(" ")));
+    $("#total").textContent=list.length+"명";root.innerHTML=list.length?'<div class="mentor-grid">'+list.map(p=>'<button class="mentor" data-act="profile" data-id="'+esc(p.id)+'"><div class="personline"><span class="avatar">'+esc(p.nickname[0])+'</span><div><h3>'+esc(p.nickname)+'</h3><span class="meta">'+esc(p.department||'')+'</span></div></div>'+employmentSummary(p)+'<p>'+esc(p.bio||"질문을 기다리고 있어요.")+'</p></button>').join("")+'</div>':emptyResults();return;
   }
   const grouped=new Map();for(const a of state.answers){if(!grouped.has(a.question_id))grouped.set(a.question_id,[]);grouped.get(a.question_id).push(a);}
   const base=state.questions.filter(q=>match([q.title,q.body,...(grouped.get(q.id)||[]).map(a=>a.body)].join(" ")));
@@ -111,12 +111,58 @@ async function toPhoto(file){
   }finally{URL.revokeObjectURL(u);}
 }
 const errSlot='<p class="error" role="alert"></p>';
+function employmentSummary(profile){
+  const job=profile.employment;
+  if(!job?.company && !job?.industry)return "";
+  const fact=(label,value)=>value?'<div><dt>'+label+'</dt><dd>'+esc(value)+'</dd></div>':"";
+  return '<dl class="employment-summary">'+fact("근무 회사",job.company)+fact("업종",job.industry)+'</dl>';
+}
+function workFields(profile={}){
+  const job=profile.employment || {};
+  return '<label>근무 회사 (선택)<input type="text" name="company" maxlength="160" placeholder="회사명 입력" value="'+esc(job.company)+'"></label>'+
+    '<label>업종 (선택)<select id="industryChoice" name="industry_choice"><option value="">직접 입력</option></select></label>'+
+    '<label id="industryManual">업종 직접 입력<input type="text" name="industry" maxlength="160" placeholder="예: 자동차 부품 제조" value="'+esc(job.industry)+'"></label>'+
+    '<small>승인된 졸업생이 적은 업종명은 가입할 때 선택지로 제공돼요.</small>';
+}
+function visibilityField(listed=false){
+  return '<label class="tick"><input type="checkbox" name="listed"'+(listed?' checked':'')+'> 선배 찾기에 내 프로필 표시</label>'+
+    '<small>표시하면 승인된 부원이 내 회사와 업종을 볼 수 있어요.</small>';
+}
+async function wireIndustry(){
+  const choice=$("#industryChoice"), manual=$("#industryManual");
+  choice.onchange=()=>{manual.hidden=Boolean(choice.value);};
+  try{
+    const labels=await Club.industries();
+    if(!choice.isConnected)return;
+    const unique=new Map();
+    for(const label of labels){
+      const key=norm(label).replace(/\s+/g," ");
+      if(key&&!unique.has(key))unique.set(key,label);
+    }
+    for(const label of [...unique.values()].sort((a,b)=>a.localeCompare(b,"ko")))choice.add(new Option(label,label));
+  }catch{ /* Direct entry remains available when suggestions cannot load. */ }
+}
+function workValues(form){
+  return {company:form.get("company").trim(),industry:(form.get("industry_choice")||form.get("industry")).trim(),listed:form.has("listed")};
+}
+function editWork(){
+  if(state.me?.role!=="졸업생")return;
+  popup("근무 정보 수정",'<form id="work" class="form">'+workFields(state.me)+visibilityField(state.me.listed)+errSlot+'<button class="solid" type="submit">저장</button></form>');
+  wireIndustry();
+  formRun($("#work"),async f=>{
+    await Club.saveWork(workValues(f));
+    await refresh();
+    if(phase==="error")throw Error("저장한 프로필을 다시 불러와 주세요.");
+    close();toast("근무 정보를 저장했어요.");
+  });
+}
 function account(){
-  if(Club.demo){popup("체험할 부원 선택",note+'<div class="chips">'+button("role","재학생으로 체험",Club.role()==="visitor"?"solid":"outline","visitor")+button("role","졸업생으로 체험",Club.role()==="grad"?"solid":"outline","grad")+'</div>');return;}
+  const editButton=state.me?.role==="졸업생"?button("editWork","근무 정보 수정"):"";
+  if(Club.demo){popup("체험할 부원 선택",note+'<div class="chips">'+button("role","재학생으로 체험",Club.role()==="visitor"?"solid":"outline","visitor")+button("role","졸업생으로 체험",Club.role()==="grad"?"solid":"outline","grad")+editButton+'</div>');return;}
   if(!Club.ready){popup("부원 로그인",'<p class="hint">운영 서버 연결을 준비 중이에요.</p>');return;}
   if(!Club.hasSession()){login();return;}
   if(!state.me){join();return;}
-  popup("내 가입 상태",'<p class="hint">'+(state.me.approved?"승인된 돌밭 부원이에요.":"운영진이 부원 여부를 확인하고 있어요. 승인 후 이 화면에서 상태를 새로 확인할 수 있어요.")+'</p><p>'+esc(state.me.nickname)+' · '+esc([state.me.department,state.me.role].filter(Boolean).join(' · '))+'</p><div class="chips">'+button("check","상태 새로고침")+button("logout","로그아웃")+'</div>');
+  popup("내 가입 상태",'<p class="hint">'+(state.me.approved?"승인된 돌밭 부원이에요.":"운영진이 부원 여부를 확인하고 있어요. 승인 후 이 화면에서 상태를 새로 확인할 수 있어요.")+'</p><p>'+esc(state.me.nickname)+' · '+esc([state.me.department,state.me.role].filter(Boolean).join(' · '))+'</p><div class="chips">'+editButton+button("check","상태 새로고침")+button("logout","로그아웃")+'</div>');
 }
 function login(isNew=false){
   const title=isNew?"부원 계정 만들기":"부원 로그인";
@@ -132,9 +178,10 @@ function login(isNew=false){
   });
 }
 function join(){
-  popup("돌밭 부원 가입 신청",'<form class="form" id="join"><p class="dim">운영진이 부원 여부를 확인한 뒤 게시판이 열려요.</p><label>부원 확인용 이름<input name="member_name" maxlength="32" required><small>운영진에게만 표시됩니다.</small></label><label>게시판 닉네임<input name="nickname" maxlength="20" required></label><label>구분<select id="roleSelect" name="role">'+picks(["재학생","졸업생"])+'</select></label><label>전공<input type="text" name="department" required placeholder="예: 기계공학과"></label><div id="mentorOpt" hidden><label>한 줄 소개<input name="bio" maxlength="160"></label><label class="tick"><input type="checkbox" name="listed"> 선배 찾기에 내 프로필 표시</label></div>'+errSlot+'<button type="submit" class="solid">가입 신청</button></form>'+button("logout","로그아웃","switch"));
+  popup("돌밭 부원 가입 신청",'<form class="form" id="join"><p class="dim">운영진이 부원 여부를 확인한 뒤 게시판이 열려요.</p><label>부원 확인용 이름<input name="member_name" maxlength="32" required><small>운영진에게만 표시됩니다.</small></label><label>게시판 닉네임<input name="nickname" maxlength="20" required></label><label>구분<select id="roleSelect" name="role">'+picks(["재학생","졸업생"])+'</select></label><label>전공<input type="text" name="department" required placeholder="예: 기계공학과"></label><div id="mentorOpt" class="work-fields" hidden>'+workFields()+'<label>한 줄 소개<input name="bio" maxlength="160"></label>'+visibilityField()+'</div>'+errSlot+'<button type="submit" class="solid">가입 신청</button></form>'+button("logout","로그아웃","switch"));
+  wireIndustry();
   $("#roleSelect").onchange=e=>$("#mentorOpt").hidden=e.target.value!=="졸업생";
-  formRun($("#join"),async f=>{const role=f.get("role");await Club.join({nickname:f.get("nickname").trim(),member_name:f.get("member_name").trim(),role,department:readMajor(f.get("department")),bio:role==="졸업생"?f.get("bio").trim():"",listed:role==="졸업생"&&f.has("listed")});await refresh();if(phase==="error")throw Error(failure);account();});
+  formRun($("#join"),async f=>{const role=f.get("role");await Club.join({nickname:f.get("nickname").trim(),member_name:f.get("member_name").trim(),role,department:readMajor(f.get("department")),bio:role==="졸업생"?f.get("bio").trim():"",...(role==="졸업생"?workValues(f):{company:"",industry:"",listed:false})});await refresh();if(phase==="error")throw Error(failure);account();});
 }
 function compose(target=""){
   if(!state.me?.approved)return account();
@@ -155,9 +202,9 @@ async function read(id){
     const aid=crypto.randomUUID();formRun($("#reply"),async f=>{const body=f.get("body").trim();if(!body)throw Error("답변 내용을 입력해 주세요.");await Club.put("answers",{id:aid,question_id:id,author:state.me.id,...authorDetails(f),body,photo:await toPhoto(f.get("photo")),created_at:new Date().toISOString()});await refresh();if(phase==="error")throw Error("저장 후 목록을 다시 불러오지 못했어요.");await read(id);});
   }catch(e){if(modal.open&&version===detailVersion)popup("질문 보기",'<p class="error">'+esc(e.message)+'</p>');}
 }
-function profile(id){const p=person(id);if(!p)return;popup(p.nickname+' 선배','<div class="labelrow"><span class="meta">'+esc([p.department,"졸업생"].filter(Boolean).join(" · "))+'</span></div><p class="article">'+esc(p.bio||"질문을 기다리고 있어요.")+'</p>'+button("new","이 선배에게 질문하기","solid",p.id));}
+function profile(id){const p=person(id);if(!p?.listed||!state.me?.approved)return;popup(p.nickname+' 선배','<div class="labelrow"><span class="meta">'+esc([p.department,"졸업생"].filter(Boolean).join(" · "))+'</span></div>'+employmentSummary(p)+'<p class="article">'+esc(p.bio||"질문을 기다리고 있어요.")+'</p>'+button("new","이 선배에게 질문하기","solid",p.id));}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,id=b.dataset.id;try{switch(act){
-  case "profile":profile(id);break;case "read":await read(id);break;case "new":compose(id);break;
+  case "editWork":editWork();break;case "profile":profile(id);break;case "read":await read(id);break;case "new":compose(id);break;
   case "status":status=id;paint();break;
   case "mentors":case "questions":location.hash=act;break;
   case "retry":await refresh();break;case "account":account();break;case "login":login();break;case "enroll":login(true);break;

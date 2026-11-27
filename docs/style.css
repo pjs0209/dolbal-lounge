@@ -14,3 +14,9 @@
   .club-links { grid-column: 1; grid-row: 2; }
   footer button { grid-column: 2; grid-row: 1 / 3; }
 }
+
+.work-fields { display: grid; gap: 13px; }
+.employment-summary { margin: .6rem 0; font-size: .9rem; overflow-wrap: anywhere; }
+.employment-summary div { display: flex; align-items: baseline; gap: .65rem; }
+.employment-summary dt { color: var(--muted); flex: none; }
+.employment-summary dd { margin: 0; }
