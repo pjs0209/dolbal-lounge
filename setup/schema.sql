@@ -186,4 +186,52 @@ $$;
 revoke all on function public.dolbal_industry_options() from public, anon, authenticated;
 grant execute on function public.dolbal_industry_options() to authenticated;
 
+alter table public.dolbal_questions
+  add column attachment_path text,
+  add column attachment_name text,
+  add constraint dolbal_question_attachment check (
+    (attachment_path is null and attachment_name is null) or
+    (attachment_path is not null and attachment_name is not null
+      and length(attachment_name) between 1 and 255
+      and attachment_path ~ ('^' || author::text || '/questions/' || id::text || '/[0-9a-f-]{36}$'))
+  );
+alter table public.dolbal_answers
+  add column attachment_path text,
+  add column attachment_name text,
+  add constraint dolbal_answer_attachment check (
+    (attachment_path is null and attachment_name is null) or
+    (attachment_path is not null and attachment_name is not null
+      and length(attachment_name) between 1 and 255
+      and attachment_path ~ ('^' || author::text || '/answers/' || id::text || '/[0-9a-f-]{36}$'))
+  );
+grant insert (attachment_path, attachment_name) on public.dolbal_questions, public.dolbal_answers to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('dolbat-attachments', 'dolbat-attachments', false, 12582912);
+
+create policy dolbat_attachment_upload on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'dolbat-attachments'
+  and (select dolbal_internal.member_ok())
+  and name ~ ('^' || (select auth.uid())::text || '/(questions|answers)/[0-9a-f-]{36}/[0-9a-f-]{36}$')
+);
+create policy dolbat_attachment_read on storage.objects for select to authenticated
+using (
+  bucket_id = 'dolbat-attachments' and (select dolbal_internal.member_ok()) and (
+    (storage.foldername(name))[1] = (select auth.uid())::text
+    or exists (select 1 from public.dolbal_questions q where q.attachment_path = objects.name)
+    or exists (select 1 from public.dolbal_answers a where a.attachment_path = objects.name)
+  )
+);
+create policy dolbat_attachment_discard on storage.objects for delete to authenticated
+using (
+  bucket_id = 'dolbat-attachments' and (select dolbal_internal.member_ok())
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+  and not exists (select 1 from public.dolbal_questions q where q.attachment_path = objects.name)
+  and not exists (select 1 from public.dolbal_answers a where a.attachment_path = objects.name)
+);
+
+create index dolbal_questions_attachment_path on public.dolbal_questions(attachment_path) where attachment_path is not null;
+create index dolbal_answers_attachment_path on public.dolbal_answers(attachment_path) where attachment_path is not null;
+
 commit;
