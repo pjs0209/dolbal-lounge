@@ -148,6 +148,11 @@ create function public.dolbal_join_member(
   p_company text, p_industry text, p_listed boolean
 ) returns void language plpgsql security invoker set search_path = '' as $$
 begin
+  if p_role = '졸업생' and (
+    coalesce(p_company,'') !~ '[^[:space:]]' or coalesce(p_industry,'') !~ '[^[:space:]]'
+  ) then
+    raise exception 'Company and industry are required for graduate registration' using errcode = '23514';
+  end if;
   insert into public.dolbal_profiles(id,nickname,member_name,role,department,bio)
   values (auth.uid(),p_nickname,p_member_name,p_role,p_department,p_bio);
   if p_role = '졸업생' then
