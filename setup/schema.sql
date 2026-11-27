@@ -2,7 +2,7 @@ begin;
 create schema dolbal_internal;
 revoke all on schema dolbal_internal from public, anon, authenticated;
 grant usage on schema dolbal_internal to authenticated;
-create type public.dolbal_field as enum ('기획·PM','디자인','개발·데이터','기계·로봇','취업·진로','기타','기계설계·해석','전자회로·전력','임베디드·제어');
+create type public.dolbal_field as enum ('기획·PM','디자인','개발·데이터','기계·로봇','취업·진로','기타','기계설계·해석','전자회로·전력','임베디드·제어','자소서','면접','대회','포트폴리오');
 create table public.dolbal_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   nickname text not null check (length(btrim(nickname)) between 1 and 20),

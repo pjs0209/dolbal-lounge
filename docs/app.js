@@ -12,12 +12,10 @@ const day=s=>new Intl.DateTimeFormat("ko-KR",{year:"numeric",month:"short",day:"
 const norm=s=>String(s||"").normalize("NFKC").toLocaleLowerCase("ko").trim();
 const button=(act,label,cls="outline",id="")=>'<button type="button" class="'+cls+'" data-act="'+act+'" data-id="'+esc(id)+'">'+label+'</button>';
 const picks=(xs,chosen)=>xs.map(s=>'<option '+(s===chosen?"selected":"")+'>'+esc(s)+'</option>').join("");
-const questionTopics=[
-  "취업·진로", "기계·로봇", "기계설계·해석", "전자회로·전력", "임베디드·제어",
-  "개발·데이터", "기획·PM", "디자인", "기타"
-];
+const questionTopics=["자소서","면접","대회","포트폴리오","취업·진로","기타"];
 function questionTopic(question){
-  return questionTopics.includes(question.field)?question.field:"미분류";
+  if(!question.field)return "미분류";
+  return questionTopics.includes(question.field)?question.field:"기타";
 }
 function topicBadge(question){
   return '<span class="question-topic">'+esc(questionTopic(question))+'</span>';
