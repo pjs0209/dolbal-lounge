@@ -4,7 +4,8 @@ const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const dataBlank=()=>({profiles:[],questions:[],answers:[],me:null});
 let state=dataBlank(), phase="loading", failure="", status="", topic="", query="", view="", generation=0, detailVersion=0;
 const modal=$("#modal"), board=$("#board");
-const area=()=>location.hash==="#mentors"?"mentors":"questions";
+const sections=["questions","mentors","projects","trends"];
+const area=()=>sections.includes(location.hash.slice(1))?location.hash.slice(1):"questions";
 const labelRole=p=>p?.role||"부원";
 const person=id=>state.profiles.find(p=>p.id===id);
 const nameOf=id=>person(id)?.nickname||"부원";
@@ -88,11 +89,22 @@ async function refresh(){
   paint();
 }
 function paint(){
-  const next=area();if(next!==view){status="";topic="";query="";view=next;}
-  const registerButton=$("#projectRegister");
-  if(registerButton)registerButton.hidden=!state.me?.approved||Club.demo;
+  const next=area(), changed=next!==view;
+  if(changed){status="";topic="";query="";view=next;}
+  const shell=$(".page-shell"), trendsPage=$("#trendsPage");
+  if(shell)shell.dataset.view=view;
+  const hero=$(".hero");
+  if(hero)hero.hidden=view==="projects"||view==="trends";
+  board.hidden=view==="projects"||view==="trends";
+  if(trendsPage)trendsPage.hidden=view!=="trends";
+  const mayPost=Boolean(state.me?.approved&&!Club.demo);
+  const registerButton=$("#projectRegister"), trendButton=$("#trendRegister");
+  if(registerButton)registerButton.hidden=!mayPost;
+  if(trendButton)trendButton.hidden=!mayPost;
   document.querySelectorAll("[data-nav]").forEach(a=>{a.classList.toggle("on",a.dataset.nav===view);if(a.dataset.nav===view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   $("#account").textContent=promptText();
+  if(view==="trends"&&changed)loadTrends(true);
+  if(board.hidden)return;
   const mentors=view==="mentors", enabled=state.me?.approved;
   const head='<div class="board-head"><div class="section-title"><h2>'+(mentors?"선배 찾기":"질문 게시판")+'</h2><span class="count" id="total"></span></div>'+(!mentors&&enabled?button("new",'<span class="ico" aria-hidden="true">＋</span> 질문하기',"solid"):"")+'</div>';
   let main;
@@ -222,6 +234,76 @@ function projectForm(){
     close();
     await loadProjects(true);
     toast("프로젝트를 등록했어요.");
+  });
+}
+const trendCategories=["논문·연구","기술 트렌드","개발 도구","기타"];
+let trendCursor=null, trendRequest=null;
+function trendSource(value){
+  try{
+    const url=new URL(value.trim());
+    if(url.protocol==="https:"&&!url.username&&!url.password&&url.href.length<=2048)return url;
+  }catch{}
+  return null;
+}
+function trendCard(post){
+  const source=trendSource(post.source_url);
+  return '<article class="competition-card trend-card"><div class="labelrow"><span class="question-topic">'+
+    esc(post.category)+'</span><time class="meta" datetime="'+esc(post.created_at)+'">'+day(post.created_at)+'</time></div>'+
+    '<h2>'+esc(post.title)+'</h2><p class="project-description">'+esc(post.summary)+'</p>'+
+    (source?'<a href="'+esc(source.href)+'" target="_blank" rel="noopener noreferrer">원문 보기 · '+esc(source.hostname)+'</a>':"")+'</article>';
+}
+async function loadTrends(reset=false){
+  const list=$("#trendList"), message=$("#trendStatus"), more=$("#trendMore");
+  if(!list)return;
+  if(trendRequest){
+    if(!reset)return;
+    await trendRequest.catch(()=>{});
+    return loadTrends(true);
+  }
+  trendRequest=Club.demo?Promise.resolve([]):Club.trends(reset?null:trendCursor);
+  more.disabled=true;
+  if(reset){
+    message.hidden=false;
+    message.textContent="소식을 불러오는 중이에요.";
+  }
+  try{
+    const posts=await trendRequest;
+    if(reset)list.innerHTML="";
+    list.insertAdjacentHTML("beforeend",posts.map(trendCard).join(""));
+    trendCursor=posts[posts.length-1]||null;
+    more.hidden=posts.length<10;
+    more.textContent="소식 더 보기";
+    message.hidden=Boolean(list.childElementCount);
+    message.textContent="아직 공유된 소식이 없어요.";
+  }catch{
+    message.hidden=false;
+    message.textContent="소식을 불러오지 못했어요.";
+    more.hidden=false;
+    more.textContent="다시 불러오기";
+  }finally{
+    trendRequest=null;
+    more.disabled=false;
+  }
+}
+function trendForm(){
+  if(Club.demo||!state.me?.approved)return;
+  const id=crypto.randomUUID();
+  popup("연구·트렌드 공유",'<form class="form" id="trendForm">'+
+    '<p class="hint">공유한 제목, 소개, 링크는 누구나 볼 수 있어요.</p>'+
+    '<label>제목<input name="title" maxlength="120" required></label>'+
+    '<label>분류<select name="category" required><option value="">분류 선택</option>'+picks(trendCategories)+'</select></label>'+
+    '<label>원문 링크<input type="url" name="source" maxlength="2048" placeholder="https://…" required></label>'+
+    '<label>소개<textarea name="summary" maxlength="1500" required placeholder="무엇이 새롭고 왜 읽어볼 만한지 적어 주세요."></textarea></label>'+
+    errSlot+'<button type="submit" class="solid">공유</button></form>');
+  formRun($("#trendForm"),async f=>{
+    const title=f.get("title").trim(), summary=f.get("summary").trim(), category=f.get("category");
+    const source=trendSource(f.get("source"));
+    if(!title||!summary||!trendCategories.includes(category))throw Error("제목, 분류, 소개를 확인해 주세요.");
+    if(!source)throw Error("https://로 시작하는 원문 링크를 입력해 주세요.");
+    await Club.registerTrend({id,title,summary,category,source_url:source.href});
+    close();
+    await loadTrends(true);
+    toast("연구·트렌드에 소식을 공유했어요.");
   });
 }
 function employmentSummary(profile){
@@ -375,6 +457,8 @@ async function read(id){
 }
 function profile(id){const p=person(id);if(!p?.listed||!state.me?.approved)return;popup(p.nickname+' 선배','<div class="labelrow"><span class="meta">'+esc([p.department,"졸업생"].filter(Boolean).join(" · "))+'</span></div>'+employmentSummary(p)+'<p class="article">'+esc(p.bio||"질문을 기다리고 있어요.")+'</p>'+button("new","이 선배에게 질문하기","solid",p.id));}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,id=b.dataset.id;try{switch(act){
+  case "registerTrend":trendForm();break;
+  case "moreTrends":await loadTrends(!$("#trendList").childElementCount);break;
   case "registerProject":projectForm();break;
   case "moreProjects":$("#projectMore").textContent="프로젝트 더 보기";await loadProjects();break;
   case "confirmDelete":confirmQuestionDelete(id);break;
@@ -393,5 +477,5 @@ board.addEventListener("change",e=>{
   if(e.target.id==="topicFilter"){topic=e.target.value;results();}
 });
 $("#about").onclick=()=>popup("이용 안내",'<p class="article">돌밭(DOLBAT)은 건국대학교 공과대학에서 로봇을 만드는 학술 동아리예요. 이곳에서는 기계공학과와 전자전기공학과 재학생·졸업생에게 제작 경험이나 진로에 대해 물어볼 수 있어요.</p><p class="article">동문 근황과 대회·수상 소식은 <a href="https://cafe.naver.com/dolbat1998" target="_blank" rel="noopener noreferrer">네이버 카페</a>에서, 동아리 활동 사진은 <a href="https://www.instagram.com/dolbat_ku/" target="_blank" rel="noopener noreferrer">인스타그램 @dolbat_ku</a>에서 볼 수 있어요.</p><p class="hint">선배를 지정한 질문도 승인된 부원 모두가 볼 수 있어요. 인물 사진이나 동아리 밖의 자료는 공유할 수 있는지 먼저 확인해 주세요.</p>'+(Club.demo?note:""));
-$("#account").onclick=account;window.addEventListener("hashchange",paint);window.addEventListener("focus",()=>{if(!modal.open&&phase==="ok"&&!Club.demo)refresh();});
+$("#account").onclick=account;window.addEventListener("hashchange",()=>{paint();window.scrollTo(0,0);});window.addEventListener("focus",()=>{if(!modal.open&&phase==="ok"&&!Club.demo)refresh();});
 paint();refresh();loadProjects();
