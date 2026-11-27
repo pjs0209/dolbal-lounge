@@ -3,7 +3,7 @@
 <meta name="theme-color" content="#163e35"><title>돌밭 라운지 · DOLBAT</title>
 <meta name="description" content="건국대학교 로봇 제작 동아리 돌밭(DOLBAT)의 재학생과 졸업생이 질문하고 답하는 커뮤니티입니다.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23163e35'/%3E%3Cpath d='M8 8h11v8H13l-5 4zm8 10h8v7l-4-2h-4z' fill='%23dbf38c'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="./style.css?v=rails1"><script defer src="./config.js"></script><script defer src="./data.js?v=history1"></script><script defer src="./app.js?v=history1"></script></head>
+<link rel="stylesheet" href="./style.css?v=projects1"><script defer src="./config.js"></script><script defer src="./data.js?v=projects1"></script><script defer src="./app.js?v=projects1"></script></head>
 <body>
 <header><div class="wrap top"><a class="brand" href="#questions" aria-label="돌밭 라운지 홈"><span class="brand-mark" aria-hidden="true"><i></i><b></b></span>돌밭 라운지</a>
 <nav aria-label="주 메뉴"><a href="#questions" data-nav="questions">질문 게시판</a><a href="#mentors" data-nav="mentors">선배 찾기</a></nav>
@@ -24,24 +24,58 @@
   </a>
 </aside>
 <aside class="site-rail competition-rail" aria-labelledby="competition-title">
-  <h2 id="competition-title">대회 프로젝트</h2>
-  <ul class="competition-list">
+  <div class="project-heading"><h2 id="competition-title">대회·개발 프로젝트</h2>
+    <button type="button" class="outline project-register" id="projectRegister" data-act="registerProject" hidden>프로젝트 등록</button>
+  </div>
+  <div id="projectFeed" class="project-feed">
+    <ul class="competition-list" id="memberProjects" aria-label="부원이 등록한 프로젝트" hidden></ul>
+    <p id="projectStatus" class="project-link-status" role="status" hidden></p>
+    <button type="button" id="projectMore" class="outline project-more" data-act="moreProjects" hidden>프로젝트 더 보기</button>
+    <ul class="competition-list" aria-label="돌밭 프로젝트">
     <li class="competition-card">
-      <h3>2026 전국 대학생 AI 자율주행 경진대회</h3>
-      <p>차선 주행, 장애물 회피, 자율 주차, 신호등 인식을 구현한 ROS 2 프로젝트예요.</p>
-      <a href="https://github.com/sw8744/dolbatS" target="_blank" rel="noopener noreferrer" aria-label="2026 전국 대학생 AI 자율주행 경진대회 GitHub">GitHub · dolbatS</a>
+      <img class="project-cover" src="./assets/projects/mandol-2025.webp" alt="" loading="lazy" decoding="async">
+      <h3>HL FMA 2025 aMAP Innovator Championship</h3>
+      <p>GPS로 차량 위치를 추정하고 미리 기록한 경로를 따라 주행하는 ROS 2 대회 프로젝트.</p>
+      <a href="https://github.com/Hannibal730/Mandol_ws" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · Mandol_ws</a><p class="project-link-status">저장소 공개 접근이 확인되지 않아요.</p><a href="https://github.com/Hannibal730/Hannibal730#projects" target="_blank" rel="noopener noreferrer">프로젝트 소개</a>
     </li>
     <li class="competition-card">
+      <img class="project-cover" src="./assets/projects/mando-2026.webp" alt="" loading="lazy" decoding="async">
       <h3>HL FMA 2026 자율주행 경진대회</h3>
-      <p>1/5 규모 차량이 위치를 추정하고, 경로를 따라 주행하도록 만든 제어 코드예요.</p>
-      <a href="https://github.com/Hannibal730/Mando2026_ws" target="_blank" rel="noopener noreferrer" aria-label="HL FMA 2026 자율주행 경진대회 GitHub">GitHub · Mando2026_ws</a>
+      <p>1/5 규모 자율주행 차량의 위치 추정, 경로 추종, 조향 제어를 통합한 프로젝트.</p>
+      <a href="https://github.com/Hannibal730/Mando2026_ws" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · Mando2026_ws</a>
     </li>
     <li class="competition-card">
+      <img class="project-cover" src="./assets/projects/jeju-2026.webp" alt="" loading="lazy" decoding="async">
       <h3>제5회 국제 대학생 EV 자율주행 경진대회</h3>
-      <p>카메라와 라이다, GPS로 차선·터널·GPS 구간을 주행하는 ROS 2 프로젝트예요.</p>
-      <a href="https://github.com/Hannibal730/Jejudol_ws" target="_blank" rel="noopener noreferrer" aria-label="제5회 국제 대학생 EV 자율주행 경진대회 GitHub">GitHub · Jejudol_ws</a>
+      <p>카메라·라이다·GPS를 사용해 차선, 터널, GPS 주행 구간을 통과하는 ROS 2 프로젝트.</p>
+      <a href="https://github.com/Hannibal730/Jejudol_ws" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · Jejudol_ws</a>
     </li>
-  </ul>
+    <li class="competition-card">
+      <img class="project-cover" src="./assets/projects/jeju-2025.webp" alt="" loading="lazy" decoding="async">
+      <h3>제4회 국제 대학생 EV 자율주행 경진대회</h3>
+      <p>3D 라이다와 GPS 정보를 바탕으로 장애물을 인식하고 주행 경로를 계획한 팀 프로젝트.</p>
+      <a href="https://github.com/Highsky7/dol_dol_dol_ws" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · dol_dol_dol_ws</a>
+    </li>
+    <li class="competition-card">
+      <img class="project-cover" src="./assets/projects/dolbotx.webp" alt="" loading="lazy" decoding="async">
+      <h3>2025 국방로봇경진대회 · DolbotX</h3>
+      <p>다양한 지형에서 이동하고 주변 환경을 인식하도록 만든 돌밭의 자율 이동 로봇.</p>
+      <a href="https://github.com/Highsky7/DolbotX" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · DolbotX</a>
+    </li>
+    <li class="competition-card">
+      <img class="project-cover" src="./assets/projects/voice-wheelchair.webp" alt="" loading="lazy" decoding="async">
+      <h3>음성 기반 전동휠체어</h3>
+      <p>음성으로 이동 방향을 지시하거나 목적지를 호출할 수 있도록 제작한 ROS 2 전동휠체어 프로젝트.</p>
+      <a href="https://github.com/yooburi/voice-based-wheelchair" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · voice-based-wheelchair</a>
+    </li>
+    <li class="competition-card">
+      <img class="project-cover" src="./assets/projects/dolbats.webp" alt="" loading="lazy" decoding="async">
+      <h3>2026 전국 대학생 AI 자율주행 경진대회</h3>
+      <p>차선 주행, 장애물 회피, 자율 주차, 신호등 인식을 구현한 ROS 2 프로젝트.</p>
+      <a href="https://github.com/sw8744/dolbatS" data-project-repo target="_blank" rel="noopener noreferrer">GitHub · dolbatS</a>
+    </li>
+    </ul>
+  </div>
 </aside>
 </main>
 <footer><div class="wrap"><strong>돌밭 라운지</strong><button id="about">이용 안내</button></div></footer>

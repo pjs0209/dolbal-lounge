@@ -49,7 +49,8 @@ function authorDetails(formData){
   return {author_department:department,author_class:year.slice(-2),author_name:name};
 }
 const note='<p class="hint">체험용 가상 부원과 예시 글입니다. 직접 등록한 내용은 이 브라우저에만 저장돼요.</p>';
-const photoTag=s=>/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s||"")?'<img class="photo" alt="게시물에 첨부한 사진" src="'+s+'">':"";
+const isPhoto=s=>/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s||"");
+const photoTag=s=>isPhoto(s)?'<img class="photo" alt="게시물에 첨부한 사진" src="'+s+'">':"";
 const fileInput='<label>파일 첨부 <input type="file" name="attachment"><small>파일 형식 제한 없이 한 개, 최대 12MB</small></label>';
 function attachmentTag(post){
   return photoTag(post.photo)+(post.attachment_path&&post.attachment_name?
@@ -88,6 +89,8 @@ async function refresh(){
 }
 function paint(){
   const next=area();if(next!==view){status="";topic="";query="";view=next;}
+  const registerButton=$("#projectRegister");
+  if(registerButton)registerButton.hidden=!state.me?.approved||Club.demo;
   document.querySelectorAll("[data-nav]").forEach(a=>{a.classList.toggle("on",a.dataset.nav===view);if(a.dataset.nav===view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   $("#account").textContent=promptText();
   const mentors=view==="mentors", enabled=state.me?.approved;
@@ -145,6 +148,82 @@ async function toPhoto(file){
   }catch{return null;}finally{URL.revokeObjectURL(u);}
 }
 const errSlot='<p class="error" role="alert"></p>';
+let projectCursor=null;
+let projectsLoading=null;
+function canonicalRepo(value){
+  let uri;
+  try{uri=new URL(value.trim());}catch{return null;}
+  if(uri.origin!=="https://github.com"||uri.username||uri.password)return null;
+  const path=uri.pathname.replace(/\/$/,"").replace(/\.git$/i,"");
+  if(!/^\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/.test(path))return null;
+  return uri.origin+path;
+}
+function memberProjectCard(project){
+  const repo=canonicalRepo(project.repository_url);
+  if(!repo)return "";
+  const image=isPhoto(project.image)?'<img class="project-cover" loading="lazy" alt="" src="'+project.image+'">':"";
+  return '<li class="competition-card">'+image+'<h3>'+esc(project.title)+'</h3>'+
+    '<p class="project-description">'+esc(project.description)+'</p>'+
+    '<a href="'+esc(repo)+'" target="_blank" rel="noopener noreferrer">GitHub · '+esc(repo.split("/").pop())+'</a></li>';
+}
+async function loadProjects(reset=false){
+  const list=$("#memberProjects"), more=$("#projectMore"), status=$("#projectStatus");
+  if(!list||Club.demo||!Club.ready)return;
+  if(projectsLoading){
+    if(!reset)return;
+    await projectsLoading.catch(()=>{});
+    return loadProjects(true);
+  }
+  projectsLoading=Club.projects(reset?null:projectCursor);
+  more.disabled=true;
+  try{
+    const batch=await projectsLoading;
+    more.textContent="프로젝트 더 보기";
+    if(reset)list.innerHTML="";
+    list.insertAdjacentHTML("beforeend",batch.map(memberProjectCard).join(""));
+    list.hidden=!list.childElementCount;
+    projectCursor=batch[batch.length-1]||null;
+    more.hidden=batch.length<6;
+    status.hidden=true;
+  }catch{
+    status.textContent="부원이 등록한 프로젝트를 불러오지 못했어요.";
+    status.hidden=false;
+    more.textContent="다시 불러오기";
+    more.hidden=false;
+  }finally{
+    more.disabled=false;
+    projectsLoading=null;
+  }
+}
+function projectForm(){
+  if(Club.demo||!state.me?.approved)return;
+  const id=crypto.randomUUID();
+  popup("프로젝트 등록",'<form class="form" id="projectForm">'+
+    '<p class="hint">등록한 링크, 설명, 이미지는 누구나 볼 수 있어요. 공개 GitHub 저장소를 등록해 주세요.</p>'+
+    '<label>프로젝트 제목<input name="title" maxlength="100" required></label>'+
+    '<label>GitHub 저장소 주소<input type="url" name="repository" placeholder="https://github.com/계정/저장소" required></label>'+
+    '<label>프로젝트 설명<textarea name="description" maxlength="700" required></textarea></label>'+
+    '<label>대표 이미지 (선택)<input type="file" name="image" accept="image/jpeg,image/png,image/webp"><small>JPG·PNG·WebP 한 장, 최대 12MB</small></label>'+
+    errSlot+'<button type="submit" class="solid">등록</button></form>');
+  formRun($("#projectForm"),async f=>{
+    const title=f.get("title").trim(), description=f.get("description").trim(), repo=canonicalRepo(f.get("repository"));
+    if(!title||!description)throw Error("프로젝트 제목과 설명을 입력해 주세요.");
+    if(!repo)throw Error("https://github.com/계정/저장소 형식으로 입력해 주세요.");
+    const seeded=[...document.querySelectorAll("[data-project-repo]")].some(a=>a.href.toLowerCase()===repo.toLowerCase());
+    if(seeded)throw Error("이미 등록된 GitHub 저장소예요.");
+    const file=f.get("image");
+    let image=null;
+    if(file?.name){
+      if(file.size>12*1024*1024)throw Error("12MB 이하의 이미지를 골라 주세요.");
+      image=await toPhoto(file);
+      if(!image)throw Error("JPG, PNG 또는 WebP 이미지를 골라 주세요.");
+    }
+    await Club.registerProject({id,title,repository_url:repo,description,image});
+    close();
+    await loadProjects(true);
+    toast("프로젝트를 등록했어요.");
+  });
+}
 function employmentSummary(profile){
   const job=profile.employment;
   if(!job?.company && !job?.industry)return "";
@@ -296,6 +375,8 @@ async function read(id){
 }
 function profile(id){const p=person(id);if(!p?.listed||!state.me?.approved)return;popup(p.nickname+' 선배','<div class="labelrow"><span class="meta">'+esc([p.department,"졸업생"].filter(Boolean).join(" · "))+'</span></div>'+employmentSummary(p)+'<p class="article">'+esc(p.bio||"질문을 기다리고 있어요.")+'</p>'+button("new","이 선배에게 질문하기","solid",p.id));}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,id=b.dataset.id;try{switch(act){
+  case "registerProject":projectForm();break;
+  case "moreProjects":$("#projectMore").textContent="프로젝트 더 보기";await loadProjects();break;
   case "confirmDelete":confirmQuestionDelete(id);break;
   case "deleteQuestion":b.disabled=true;try{await deleteQuestion(id);}finally{b.disabled=false;}break;
   case "attachment":b.disabled=true;try{await saveAttachment(b);}finally{b.disabled=false;}break;
@@ -313,4 +394,4 @@ board.addEventListener("change",e=>{
 });
 $("#about").onclick=()=>popup("이용 안내",'<p class="article">돌밭(DOLBAT)은 건국대학교 공과대학에서 로봇을 만드는 학술 동아리예요. 이곳에서는 기계공학과와 전자전기공학과 재학생·졸업생에게 제작 경험이나 진로에 대해 물어볼 수 있어요.</p><p class="article">동문 근황과 대회·수상 소식은 <a href="https://cafe.naver.com/dolbat1998" target="_blank" rel="noopener noreferrer">네이버 카페</a>에서, 동아리 활동 사진은 <a href="https://www.instagram.com/dolbat_ku/" target="_blank" rel="noopener noreferrer">인스타그램 @dolbat_ku</a>에서 볼 수 있어요.</p><p class="hint">선배를 지정한 질문도 승인된 부원 모두가 볼 수 있어요. 인물 사진이나 동아리 밖의 자료는 공유할 수 있는지 먼저 확인해 주세요.</p>'+(Club.demo?note:""));
 $("#account").onclick=account;window.addEventListener("hashchange",paint);window.addEventListener("focus",()=>{if(!modal.open&&phase==="ok"&&!Club.demo)refresh();});
-paint();refresh();
+paint();refresh();loadProjects();
