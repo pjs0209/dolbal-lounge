@@ -3,17 +3,47 @@
 <meta name="theme-color" content="#163e35"><title>돌밭 라운지 · DOLBAT</title>
 <meta name="description" content="건국대학교 로봇 제작 동아리 돌밭(DOLBAT)의 재학생과 졸업생이 질문하고 답하는 커뮤니티입니다.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23163e35'/%3E%3Cpath d='M8 8h11v8H13l-5 4zm8 10h8v7l-4-2h-4z' fill='%23dbf38c'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="./style.css?v=history1"><script defer src="./config.js"></script><script defer src="./data.js?v=history1"></script><script defer src="./app.js?v=history1"></script></head>
+<link rel="stylesheet" href="./style.css?v=rails1"><script defer src="./config.js"></script><script defer src="./data.js?v=history1"></script><script defer src="./app.js?v=history1"></script></head>
 <body>
 <header><div class="wrap top"><a class="brand" href="#questions" aria-label="돌밭 라운지 홈"><span class="brand-mark" aria-hidden="true"><i></i><b></b></span>돌밭 라운지</a>
 <nav aria-label="주 메뉴"><a href="#questions" data-nav="questions">질문 게시판</a><a href="#mentors" data-nav="mentors">선배 찾기</a></nav>
 <button class="account" id="account"></button></div></header>
-<main class="wrap"><section class="hero"><div class="hero-copy"><p class="eyebrow"><span></span>DOLBAT CLUBHOUSE</p><h1>선배에게 묻고,<br><em>경험을 나눠요.</em></h1><p class="intro">건국대학교 로봇 제작 동아리 돌밭의 재학생과 졸업생이 만나는 곳.</p></div>
+<main class="page-shell">
+<div class="page-core"><section class="hero"><div class="hero-copy"><p class="eyebrow"><span></span>DOLBAT CLUBHOUSE</p><h1>선배에게 묻고,<br><em>경험을 나눠요.</em></h1><p class="intro">건국대학교 로봇 제작 동아리 돌밭의 재학생과 졸업생이 만나는 곳.</p></div>
 <div class="art" aria-hidden="true"><div class="orbit"></div><div class="paper qpaper"><div class="holes"></div><strong>Q<span>.</span></strong><div class="paper-lines"></div></div><div class="paper apaper"><div class="holes"></div><strong>A<span>.</span></strong><div class="paper-lines"></div></div><i class="spark">✳</i></div></section>
-<div id="board"></div></main>
-<footer><div class="wrap"><strong>돌밭 라운지</strong><div class="club-links" role="group" aria-label="돌밭 공식 채널">
-<a href="https://cafe.naver.com/dolbat1998" target="_blank" rel="noopener noreferrer">네이버 카페</a>
-<a href="https://www.instagram.com/dolbat_ku/" target="_blank" rel="noopener noreferrer" aria-label="돌밭 인스타그램 @dolbat_ku">인스타그램</a>
-</div><button id="about">이용 안내</button></div></footer>
+<div id="board"></div></div>
+<aside class="site-rail social-rail" aria-labelledby="social-title">
+  <h2 id="social-title">돌밭 공식 채널</h2>
+  <a class="social-card" href="https://www.instagram.com/dolbat_ku/" target="_blank" rel="noopener noreferrer">
+    <img src="./assets/instagram.webp" width="70" height="70" alt="">
+    <span><strong>인스타그램</strong><small>@dolbat_ku</small></span>
+  </a>
+  <a class="social-card" href="https://cafe.naver.com/dolbat1998" target="_blank" rel="noopener noreferrer">
+    <img src="./assets/naver-cafe.webp" width="70" height="70" alt="">
+    <span><strong>네이버 카페</strong><small>공지사항 · 활동 소식</small></span>
+  </a>
+</aside>
+<aside class="site-rail competition-rail" aria-labelledby="competition-title">
+  <h2 id="competition-title">대회 프로젝트</h2>
+  <ul class="competition-list">
+    <li class="competition-card">
+      <h3>2026 전국 대학생 AI 자율주행 경진대회</h3>
+      <p>차선 주행, 장애물 회피, 자율 주차, 신호등 인식을 구현한 ROS 2 프로젝트예요.</p>
+      <a href="https://github.com/sw8744/dolbatS" target="_blank" rel="noopener noreferrer" aria-label="2026 전국 대학생 AI 자율주행 경진대회 GitHub">GitHub · dolbatS</a>
+    </li>
+    <li class="competition-card">
+      <h3>HL FMA 2026 자율주행 경진대회</h3>
+      <p>1/5 규모 차량이 위치를 추정하고, 경로를 따라 주행하도록 만든 제어 코드예요.</p>
+      <a href="https://github.com/Hannibal730/Mando2026_ws" target="_blank" rel="noopener noreferrer" aria-label="HL FMA 2026 자율주행 경진대회 GitHub">GitHub · Mando2026_ws</a>
+    </li>
+    <li class="competition-card">
+      <h3>제5회 국제 대학생 EV 자율주행 경진대회</h3>
+      <p>카메라와 라이다, GPS로 차선·터널·GPS 구간을 주행하는 ROS 2 프로젝트예요.</p>
+      <a href="https://github.com/Hannibal730/Jejudol_ws" target="_blank" rel="noopener noreferrer" aria-label="제5회 국제 대학생 EV 자율주행 경진대회 GitHub">GitHub · Jejudol_ws</a>
+    </li>
+  </ul>
+</aside>
+</main>
+<footer><div class="wrap"><strong>돌밭 라운지</strong><button id="about">이용 안내</button></div></footer>
 <dialog id="modal"><div class="modal-head"><h2 id="modal-title"></h2><button class="cross" aria-label="닫기" id="close">×</button></div><div id="modal-body"></div></dialog><div id="toast" role="status"></div><noscript>게시판을 보려면 브라우저에서 JavaScript를 켜 주세요.</noscript>
 </body></html>
