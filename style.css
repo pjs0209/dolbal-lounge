@@ -27,7 +27,7 @@
 .danger:hover { background: #fbe7e5; }
 
 .page-shell {
-  width: min(1140px, calc(100% - 80px));
+  width: min(1140px, calc(100% - 40px));
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -65,13 +65,19 @@
 .competition-card h3 { font-size: .95rem; line-height: 1.4; margin: 0; }
 .competition-card p { margin: .42rem 0; font-size: .87rem; color: var(--muted); }
 .competition-card a { color: var(--pine); font-weight: 650; font-size: .85rem; text-underline-offset: .2em; overflow-wrap: anywhere; }
-@media (min-width: 1320px) {
+@media (min-width: 1200px) {
+  :root { --desktop-gutter: clamp(18px, 1.6vw, 40px); }
+  .page-shell, header .wrap, footer .wrap {
+    width: calc(100% - 2 * var(--desktop-gutter));
+  }
   .page-shell {
-    width: min(1700px, calc(100% - 80px));
-    grid-template-columns: clamp(200px, 15vw, 238px) minmax(0, 1fr) clamp(238px, 17vw, 274px);
+    grid-template-columns: clamp(172px, 13vw, 260px) minmax(0, 1fr) clamp(262px, 23vw, 580px);
     grid-template-areas: "social core competition";
+    column-gap: clamp(14px, 1.4vw, 30px);
   }
   .site-rail { margin-top: 28px; }
+  .hero { min-height: clamp(255px, 16vw, 350px); }
+  .project-feed { container-type: inline-size; }
 }
 @media (max-width: 850px) {
   .page-shell { width: calc(100% - 40px); gap: 24px 16px; }
@@ -89,6 +95,6 @@
 .project-cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #ebf1e9; border-radius: 8px; margin-bottom: .65rem; }
 .project-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 .competition-card h3 { overflow-wrap: anywhere; }
-@media (min-width: 1320px) {
-  .project-feed { max-height: 735px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: .2rem; }
+@container (min-width: 450px) {
+  .competition-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
