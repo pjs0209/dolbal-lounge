@@ -103,7 +103,7 @@ const Club = (() => {
     ["q6","student1","첫 PCB 제작 전에 기구팀과 어떤 치수를 맞춰 두시나요?","보드 외곽과 체결 홀을 정하는 중이에요. 커넥터와 케이블에 필요한 공간을 언제 확인하면 좋을까요?",2.5]
   ].map(([id,author,title,body,days],i)=>({
     id,author,...sampleAuthor(author),title,body,created_at:when(days),target:null,photo:null,
-    field:["취업·진로","기계·로봇","기획·PM","개발·데이터","임베디드·제어","전자회로·전력"][i]
+    field:["포트폴리오","면접","자소서","포트폴리오","대회","기타"][i]
   }));
   const sampleReplies=[
     ["a1","q1","mentor2","제가 맡은 결정이 분명한 프로젝트 하나로 시작했어요. 처음 세운 가설, 바꾼 부분, 결과를 한 장씩 보여주니 면접에서 이어갈 이야기가 생겼습니다."],
