@@ -101,7 +101,10 @@ const Club = (() => {
     ["q4","student1","데이터 분석 인턴을 준비할 때 첫 프로젝트가 궁금해요","수업 과제로 모은 센서 데이터가 있어요. 분석부터 시각화까지 어느 정도 완성해야 할까요?",4],
     ["q5","student2","엔코더로 측정한 회전수를 기계팀과 어떻게 비교하나요?","기구 제작을 맡았는데 전자팀과 함께 모터를 시험하고 있어요. 같은 실험 결과를 비교하려면 어떤 값을 맞춰 두면 좋을까요?",1.5],
     ["q6","student1","첫 PCB 제작 전에 기구팀과 어떤 치수를 맞춰 두시나요?","보드 외곽과 체결 홀을 정하는 중이에요. 커넥터와 케이블에 필요한 공간을 언제 확인하면 좋을까요?",2.5]
-  ].map(([id,author,title,body,days])=>({id,author,...sampleAuthor(author),title,body,created_at:when(days),target:null,photo:null}));
+  ].map(([id,author,title,body,days],i)=>({
+    id,author,...sampleAuthor(author),title,body,created_at:when(days),target:null,photo:null,
+    field:["취업·진로","기계·로봇","기획·PM","개발·데이터","임베디드·제어","전자회로·전력"][i]
+  }));
   const sampleReplies=[
     ["a1","q1","mentor2","제가 맡은 결정이 분명한 프로젝트 하나로 시작했어요. 처음 세운 가설, 바꾼 부분, 결과를 한 장씩 보여주니 면접에서 이어갈 이야기가 생겼습니다."],
     ["a2","q1","mentor4","지원하려는 역할과 가장 가까운 경험을 앞에 뒀어요. 팀의 결과와 내가 실제로 한 일을 나눠 적어보세요."],
@@ -128,7 +131,7 @@ const Club = (() => {
     if(!ready || !session)return blank;
     const me=(await table("profiles","id=eq."+encodeURIComponent(session.user.id)+"&select="+profileCols))[0];
     if(!me?.approved)return {...blank,me:me||null};
-    const [p,q,a]=await Promise.all([all("profiles",profileCols,"id"),all("questions","id,author,author_name,author_department,author_class,target,title,body,created_at","id"),all("answers","id,question_id,author,author_name,author_department,author_class,body,created_at","id")]);
+    const [p,q,a]=await Promise.all([all("profiles",profileCols,"id"),all("questions","id,author,author_name,author_department,author_class,field,target,title,body,created_at","id"),all("answers","id,question_id,author,author_name,author_department,author_class,body,created_at","id")]);
     return {profiles:p,questions:q,answers:a,me};
   }
   async function put(name,obj){
