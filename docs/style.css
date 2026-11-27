@@ -79,3 +79,16 @@
 @media (max-width: 670px) {
   .page-shell { width: calc(100% - 28px); grid-template-columns: minmax(0, 1fr); grid-template-areas: "core" "social" "competition"; }
 }
+
+.project-heading { display: flex; align-items: start; flex-wrap: wrap; justify-content: space-between; gap: .35rem .55rem; }
+.project-heading h2 { flex: 1 0 auto; }
+.project-register, .project-more { font-size: .82rem; padding: .3rem .58rem; margin-bottom: .55rem; }
+.project-feed { min-width: 0; }
+#memberProjects { margin-bottom: .6rem; }
+.project-link-status { font-size: .8rem; color: var(--muted); }
+.project-cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #ebf1e9; border-radius: 8px; margin-bottom: .65rem; }
+.project-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.competition-card h3 { overflow-wrap: anywhere; }
+@media (min-width: 1320px) {
+  .project-feed { max-height: 735px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: .2rem; }
+}

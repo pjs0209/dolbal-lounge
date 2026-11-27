@@ -288,4 +288,23 @@ alter policy dolbat_attachment_discard on storage.objects using (
   bucket_id = 'dolbat-attachments' and dolbal_internal.owns_staged_attachment(name)
 );
 
+create table public.dolbat_projects (
+  id uuid primary key,
+  author uuid references public.dolbal_profiles(id) on delete set null default auth.uid(),
+  title text not null check (char_length(title) between 1 and 100 and title ~ '[^[:space:]]'),
+  repository_url text not null check (repository_url ~ '^https://github[.]com/[A-Za-z0-9-]{1,39}/[A-Za-z0-9_.-]{1,100}$'),
+  description text not null check (char_length(description) between 1 and 700 and description ~ '[^[:space:]]'),
+  image public.dolbal_photo,
+  created_at timestamptz not null default now()
+);
+create unique index dolbat_projects_repo_unique on public.dolbat_projects (lower(repository_url));
+create index dolbat_projects_recent on public.dolbat_projects (created_at desc, id desc);
+alter table public.dolbat_projects enable row level security;
+revoke all on public.dolbat_projects from public, anon, authenticated;
+grant select (id,title,repository_url,description,image,created_at) on public.dolbat_projects to anon, authenticated;
+grant insert (id,title,repository_url,description,image) on public.dolbat_projects to authenticated;
+create policy dolbat_projects_public on public.dolbat_projects for select to anon, authenticated using (true);
+create policy dolbat_projects_register on public.dolbat_projects for insert to authenticated
+with check (author = (select auth.uid()) and (select dolbal_internal.member_ok()));
+
 commit;

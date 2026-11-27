@@ -222,7 +222,23 @@ const Club = (() => {
     if(demo)return profiles.filter(p=>p.approved&&p.role==="졸업생").map(p=>p.employment?.industry).filter(Boolean);
     return rpc("industry_options",{});
   }
-  return {demo,ready,sample,load,put,details,download,deleteQuestion,saveWork,industries,
+  const projectCols="id,title,repository_url,description,image,created_at";
+  function projects(cursor){
+    const filter=cursor?"&or="+encodeURIComponent(
+      "(created_at.lt."+cursor.created_at+",and(created_at.eq."+cursor.created_at+",id.lt."+cursor.id+"))"
+    ):"";
+    return api("/rest/v1/dolbat_projects?select="+projectCols+"&order=created_at.desc,id.desc&limit=6"+filter);
+  }
+  async function registerProject(project){
+    try{
+      await api("/rest/v1/dolbat_projects",{method:"POST",auth:true,body:project});
+    }catch(error){
+      if(error.status!==409)throw error;
+      const saved=await api("/rest/v1/dolbat_projects?select=id&id=eq."+encodeURIComponent(project.id));
+      if(!saved.length)throw Error("이미 등록된 GitHub 저장소예요.");
+    }
+  }
+  return {demo,ready,sample,load,put,details,download,deleteQuestion,saveWork,industries,projects,registerProject,
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
     authenticate,
     join:p=>rpc("join_member",{p_nickname:p.nickname,p_member_name:p.member_name,p_role:p.role,
