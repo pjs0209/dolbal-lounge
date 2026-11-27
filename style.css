@@ -20,3 +20,8 @@
 .employment-summary div { display: flex; align-items: baseline; gap: .65rem; }
 .employment-summary dt { color: var(--muted); flex: none; }
 .employment-summary dd { margin: 0; }
+
+.question-filters { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .65rem; }
+.question-filters .mobile-filter-wrap { margin-top: 0; }
+.topic-filter { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: .35rem .55rem; background: #fff; font-size: .87rem; }
+.question-topic { display: inline-block; color: var(--pine); background: #e9efe4; border-radius: 12px; padding: .2rem .55rem; font-size: .82rem; }
