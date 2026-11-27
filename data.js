@@ -61,7 +61,7 @@ const Club = (() => {
     }
     saveSession(result);
   }
-  const profileCols="id,nickname,role,department,bio,listed,approved";
+  const profileCols="id,nickname,role,department,bio,listed,approved,employment:dolbal_employment(company,industry)";
   const table=(name,query="",opts={})=>api("/rest/v1/dolbal_"+name+(query?"?"+query:""),{auth:true,...opts});
   async function all(name,select,order){
     const rows=[];let cursor="";
@@ -80,6 +80,16 @@ const Club = (() => {
     ["mentor3","파도선배","졸업생","전자전기공학과","윤서진","17","엔코더 신호 수집과 모터 제어 펌웨어를 다뤄요.",true],
     ["mentor4","다온선배","졸업생","전자전기공학과","오지수","19","회로 설계와 PCB 제작 경험을 나눠요.",true]
   ].map(([id,nickname,role,department,name,cohort,bio,listed])=>({id,nickname,role,department,name,cohort,bio,listed,approved:true}));
+  const demoWorkKey="dolbat-demo-employment-v1";
+  const demoGrad=profiles.find(p=>p.id==="grad");
+  demoGrad.employment={company:"돌밭모션 (예시)",industry:"로봇 제조"};
+  try{
+    const saved=JSON.parse(localStorage.getItem(demoWorkKey));
+    if(saved){
+      demoGrad.employment={company:saved.company,industry:saved.industry};
+      demoGrad.listed=saved.listed;
+    }
+  }catch{}
   function sampleAuthor(id){
     const member=profiles.find(p=>p.id===id);
     return {author_department:member.department,author_class:member.cohort,author_name:member.name};
@@ -137,10 +147,24 @@ const Club = (() => {
     for(;;){const part=await table("answers","question_id=eq."+encodeURIComponent(id)+"&select=*&order=id.asc&limit=15"+(cursor?"&id=gt."+cursor:""));
       rows.push(...part);if(part.length<15)return rows;cursor=part[part.length-1].id;}
   }
-  return {demo,ready,sample,load,put,details,
+  const rpc=(name,body)=>api("/rest/v1/rpc/dolbal_"+name,{method:"POST",auth:true,body});
+  async function saveWork({company,industry,listed}){
+    if(demo){
+      if(role!=="grad")throw Error("졸업생만 근무 정보를 수정할 수 있어요.");
+      localStorage.setItem(demoWorkKey,JSON.stringify({company,industry,listed}));
+      demoGrad.employment={company,industry};demoGrad.listed=listed;return;
+    }
+    await rpc("save_employment",{p_company:company,p_industry:industry,p_listed:listed});
+  }
+  function industries(){
+    if(demo)return profiles.filter(p=>p.approved&&p.role==="졸업생").map(p=>p.employment?.industry).filter(Boolean);
+    return rpc("industry_options",{});
+  }
+  return {demo,ready,sample,load,put,details,saveWork,industries,
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
     authenticate,
-    join:profile=>table("profiles","",{method:"POST",body:{...profile,id:session.user.id}}),
+    join:p=>rpc("join_member",{p_nickname:p.nickname,p_member_name:p.member_name,p_role:p.role,
+      p_department:p.department,p_bio:p.bio,p_listed:p.listed,p_company:p.company,p_industry:p.industry}),
     logout:async()=>{try{if(session)await api("/auth/v1/logout?scope=local",{method:"POST",auth:true});}finally{saveSession(null);}}
   };
 })();
