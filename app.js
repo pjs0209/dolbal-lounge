@@ -22,16 +22,21 @@ function authorFields(){
     .sort((a,b)=>b.created_at.localeCompare(a.created_at))[0];
   const department=mine?.author_department || state.me.department;
   return '<fieldset class="author-fields"><legend>작성자 정보</legend>'+
-    '<label>전공<select name="author_department" required><option value="">전공 선택</option>'+picks(Club.departments,department)+'</select></label>'+
+    '<label>전공<input type="text" name="author_department" required placeholder="예: 기계공학과" value="'+esc(department)+'"></label>'+
     '<label>학번 (입학연도)<input name="author_class" type="text" inputmode="numeric" pattern="([0-9]{2}|(19|20)[0-9]{2})" maxlength="4" autocomplete="off" required placeholder="예: 22 또는 2022" value="'+esc(mine?.author_class)+'"></label>'+
     '<label>이름<input name="author_name" maxlength="32" autocomplete="name" required value="'+esc(mine?.author_name)+'"></label>'+
     '<small>전공·학번·이름은 게시글을 읽을 수 있는 부원에게 표시돼요.</small></fieldset>';
 }
+function readMajor(value){
+  const major=String(value??"").trim();
+  if(!major) throw Error("전공을 입력해 주세요.");
+  return major;
+}
 function authorDetails(formData){
-  const department=String(formData.get("author_department")||"").trim();
+  const department=readMajor(formData.get("author_department"));
   const year=String(formData.get("author_class")||"").trim();
   const name=String(formData.get("author_name")||"").trim();
-  if(!Club.departments.includes(department)||!/^(?:[0-9]{2}|(?:19|20)[0-9]{2})$/.test(year)||!name||name.length>32)
+  if(!/^(?:[0-9]{2}|(?:19|20)[0-9]{2})$/.test(year)||!name||name.length>32)
     throw Error("전공과 학번, 이름을 확인해 주세요.");
   return {author_department:department,author_class:year.slice(-2),author_name:name};
 }
@@ -127,9 +132,9 @@ function login(isNew=false){
   });
 }
 function join(){
-  popup("돌밭 부원 가입 신청",'<form class="form" id="join"><p class="dim">운영진이 부원 여부를 확인한 뒤 게시판이 열려요.</p><label>부원 확인용 이름<input name="member_name" maxlength="32" required><small>운영진에게만 표시됩니다.</small></label><label>게시판 닉네임<input name="nickname" maxlength="20" required></label><label>구분<select id="roleSelect" name="role">'+picks(["재학생","졸업생"])+'</select></label><label>소속 학과<select name="department" required><option value="" disabled selected>학과 선택</option>'+picks(Club.departments)+'</select></label><div id="mentorOpt" hidden><label>한 줄 소개<input name="bio" maxlength="160"></label><label class="tick"><input type="checkbox" name="listed"> 선배 찾기에 내 프로필 표시</label></div>'+errSlot+'<button type="submit" class="solid">가입 신청</button></form>'+button("logout","로그아웃","switch"));
+  popup("돌밭 부원 가입 신청",'<form class="form" id="join"><p class="dim">운영진이 부원 여부를 확인한 뒤 게시판이 열려요.</p><label>부원 확인용 이름<input name="member_name" maxlength="32" required><small>운영진에게만 표시됩니다.</small></label><label>게시판 닉네임<input name="nickname" maxlength="20" required></label><label>구분<select id="roleSelect" name="role">'+picks(["재학생","졸업생"])+'</select></label><label>전공<input type="text" name="department" required placeholder="예: 기계공학과"></label><div id="mentorOpt" hidden><label>한 줄 소개<input name="bio" maxlength="160"></label><label class="tick"><input type="checkbox" name="listed"> 선배 찾기에 내 프로필 표시</label></div>'+errSlot+'<button type="submit" class="solid">가입 신청</button></form>'+button("logout","로그아웃","switch"));
   $("#roleSelect").onchange=e=>$("#mentorOpt").hidden=e.target.value!=="졸업생";
-  formRun($("#join"),async f=>{const role=f.get("role");await Club.join({nickname:f.get("nickname").trim(),member_name:f.get("member_name").trim(),role,department:f.get("department"),bio:role==="졸업생"?f.get("bio").trim():"",listed:role==="졸업생"&&f.has("listed")});await refresh();if(phase==="error")throw Error(failure);account();});
+  formRun($("#join"),async f=>{const role=f.get("role");await Club.join({nickname:f.get("nickname").trim(),member_name:f.get("member_name").trim(),role,department:readMajor(f.get("department")),bio:role==="졸업생"?f.get("bio").trim():"",listed:role==="졸업생"&&f.has("listed")});await refresh();if(phase==="error")throw Error(failure);account();});
 }
 function compose(target=""){
   if(!state.me?.approved)return account();

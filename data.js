@@ -1,6 +1,5 @@
 "use strict";
 const Club = (() => {
-  const departments = ["기계공학과", "전자전기공학과"];
   const cfg = window.DOLBAT_CONFIG || {};
   const demo = cfg.mode === "demo";
   const base = String(cfg.url || "").replace(/\/$/, "");
@@ -138,7 +137,7 @@ const Club = (() => {
     for(;;){const part=await table("answers","question_id=eq."+encodeURIComponent(id)+"&select=*&order=id.asc&limit=15"+(cursor?"&id=gt."+cursor:""));
       rows.push(...part);if(part.length<15)return rows;cursor=part[part.length-1].id;}
   }
-  return {departments,demo,ready,sample,load,put,details,
+  return {demo,ready,sample,load,put,details,
     hasSession:()=>!!session,role:()=>role,setRole:r=>{role=r==="grad"?"grad":"visitor";localStorage.setItem("dolbal-demo-role",role);},
     authenticate,
     join:profile=>table("profiles","",{method:"POST",body:{...profile,id:session.user.id}}),
