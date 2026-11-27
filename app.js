@@ -117,20 +117,23 @@ function employmentSummary(profile){
   const fact=(label,value)=>value?'<div><dt>'+label+'</dt><dd>'+esc(value)+'</dd></div>':"";
   return '<dl class="employment-summary">'+fact("근무 회사",job.company)+fact("업종",job.industry)+'</dl>';
 }
-function workFields(profile={}){
+function workFields(profile={}, signup=false){
   const job=profile.employment || {};
-  return '<label>근무 회사 (선택)<input type="text" name="company" maxlength="160" placeholder="회사명 입력" value="'+esc(job.company)+'"></label>'+
-    '<label>업종 (선택)<select id="industryChoice" name="industry_choice"><option value="">직접 입력</option></select></label>'+
-    '<label id="industryManual">업종 직접 입력<input type="text" name="industry" maxlength="160" placeholder="예: 자동차 부품 제조" value="'+esc(job.industry)+'"></label>'+
+  const fieldStatus=signup?" (필수)":" (선택)";
+  const companyHint=signup?"예: 회사명 또는 미취업":"회사명 입력";
+  const industryHint=signup?"예: 자동차 부품 제조 또는 해당 없음":"예: 자동차 부품 제조";
+  return '<label>근무 회사'+fieldStatus+'<input type="text" name="company" maxlength="160" placeholder="'+companyHint+'" value="'+esc(job.company)+'"></label>'+
+    '<label>업종'+fieldStatus+'<select id="industryChoice" name="industry_choice"><option value="">직접 입력</option></select></label>'+
+    '<label id="industryManual">업종 직접 입력<input type="text" name="industry" maxlength="160" placeholder="'+industryHint+'" value="'+esc(job.industry)+'"></label>'+
     '<small>승인된 졸업생이 적은 업종명은 가입할 때 선택지로 제공돼요.</small>';
 }
 function visibilityField(listed=false){
   return '<label class="tick"><input type="checkbox" name="listed"'+(listed?' checked':'')+'> 선배 찾기에 내 프로필 표시</label>'+
     '<small>표시하면 승인된 부원이 내 회사와 업종을 볼 수 있어요.</small>';
 }
-async function wireIndustry(){
+async function wireIndustry(onChange=()=>{}){
   const choice=$("#industryChoice"), manual=$("#industryManual");
-  choice.onchange=()=>{manual.hidden=Boolean(choice.value);};
+  choice.onchange=()=>{manual.hidden=Boolean(choice.value);onChange();};
   try{
     const labels=await Club.industries();
     if(!choice.isConnected)return;
@@ -178,10 +181,29 @@ function login(isNew=false){
   });
 }
 function join(){
-  popup("돌밭 부원 가입 신청",'<form class="form" id="join"><p class="dim">운영진이 부원 여부를 확인한 뒤 게시판이 열려요.</p><label>부원 확인용 이름<input name="member_name" maxlength="32" required><small>운영진에게만 표시됩니다.</small></label><label>게시판 닉네임<input name="nickname" maxlength="20" required></label><label>구분<select id="roleSelect" name="role">'+picks(["재학생","졸업생"])+'</select></label><label>전공<input type="text" name="department" required placeholder="예: 기계공학과"></label><div id="mentorOpt" class="work-fields" hidden>'+workFields()+'<label>한 줄 소개<input name="bio" maxlength="160"></label>'+visibilityField()+'</div>'+errSlot+'<button type="submit" class="solid">가입 신청</button></form>'+button("logout","로그아웃","switch"));
-  wireIndustry();
-  $("#roleSelect").onchange=e=>$("#mentorOpt").hidden=e.target.value!=="졸업생";
-  formRun($("#join"),async f=>{const role=f.get("role");await Club.join({nickname:f.get("nickname").trim(),member_name:f.get("member_name").trim(),role,department:readMajor(f.get("department")),bio:role==="졸업생"?f.get("bio").trim():"",...(role==="졸업생"?workValues(f):{company:"",industry:"",listed:false})});await refresh();if(phase==="error")throw Error(failure);account();});
+  popup("돌밭 부원 가입 신청",'<form class="form" id="join"><p class="dim">운영진이 부원 여부를 확인한 뒤 게시판이 열려요.</p><label>부원 확인용 이름<input name="member_name" maxlength="32" required><small>운영진에게만 표시됩니다.</small></label><label>게시판 닉네임<input name="nickname" maxlength="20" required></label><label>구분<select id="roleSelect" name="role">'+picks(["재학생","졸업생"])+'</select></label><label>전공<input type="text" name="department" required placeholder="예: 기계공학과"></label><div id="mentorOpt" class="work-fields" hidden>'+workFields({},true)+'<label>한 줄 소개<input name="bio" maxlength="160"></label>'+visibilityField()+'</div>'+errSlot+'<button type="submit" class="solid">가입 신청</button></form>'+button("logout","로그아웃","switch"));
+  const form=$("#join");
+  const roleSelect=$("#roleSelect");
+  function syncWorkRequirements(){
+    const graduate=roleSelect.value==="졸업생";
+    $("#mentorOpt").hidden=!graduate;
+    form.elements.company.required=graduate;
+    form.elements.industry.required=graduate&&!form.elements.industry_choice.value;
+  }
+  roleSelect.onchange=syncWorkRequirements;
+  wireIndustry(syncWorkRequirements);
+  syncWorkRequirements();
+  formRun(form,async f=>{
+    const role=f.get("role");
+    const graduate=role==="졸업생";
+    const work=graduate?workValues(f):{company:"",industry:"",listed:false};
+    if(graduate && (!work.company||!work.industry))throw Error("근무 회사와 업종을 입력해 주세요.");
+    await Club.join({nickname:f.get("nickname").trim(),member_name:f.get("member_name").trim(),role,
+      department:readMajor(f.get("department")),bio:graduate?f.get("bio").trim():"",...work});
+    await refresh();
+    if(phase==="error")throw Error(failure);
+    account();
+  });
 }
 function compose(target=""){
   if(!state.me?.approved)return account();
