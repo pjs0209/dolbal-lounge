@@ -7,7 +7,7 @@ create table public.dolbal_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   nickname text not null check (length(btrim(nickname)) between 1 and 20),
   member_name text not null check (length(btrim(member_name)) between 1 and 32),
-  department text check (department in ('기계공학과','전자전기공학과')),
+  department text check (department ~ '[^[:space:]]'),
   role text not null check (role in ('재학생','졸업생')),
   field public.dolbal_field,
   bio text not null default '' check (length(bio)<=160),
@@ -36,7 +36,7 @@ create table public.dolbal_questions (
   author_class text,
   constraint dolbal_questions_author_signature check (
       author_name is not null and length(btrim(author_name)) between 1 and 32 and author_name ~ '[^[:space:]]' and
-      author_department is not null and author_department in ('기계공학과','전자전기공학과') and
+      author_department is not null and author_department ~ '[^[:space:]]' and
       author_class is not null and author_class ~ '^[0-9]{2}$'
   ),
   created_at timestamptz not null default now()
@@ -52,7 +52,7 @@ create table public.dolbal_answers (
   author_class text,
   constraint dolbal_answers_author_signature check (
       author_name is not null and length(btrim(author_name)) between 1 and 32 and author_name ~ '[^[:space:]]' and
-      author_department is not null and author_department in ('기계공학과','전자전기공학과') and
+      author_department is not null and author_department ~ '[^[:space:]]' and
       author_class is not null and author_class ~ '^[0-9]{2}$'
   ),
   created_at timestamptz not null default now()
